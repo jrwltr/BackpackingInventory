@@ -1,0 +1,238 @@
+<inventory>
+    <category name="Hiking">
+        <item name="ULA OHM 2.0 63 Liter Pack" ounces="34.50" carry="YES" />
+        <item name="Gregory Zulu 40 Liter Pack" ounces="37.00" carry="NO" />
+        <item name="Jack Wolfskin Yak III 90 Liter Pack" ounces="96.00" carry="NO" />
+        <item name="Large Pack Rain Cover" ounces="8.00" carry="NO" />
+        <item name="Osprey  32 Liter Pack" ounces="40.00" carry="NO" />
+        <item name="Compass" ounces="0.72" carry="NO" />
+        <item name="Frog Togs Rain Gear" ounces="14.00" carry="NO" />
+        <item name="Maps" ounces="2.20" carry="YES" />
+        <item name="Whistle" ounces="0.31" carry="NO" />
+    </category>
+
+    <category name="Home">
+        <item name="Nemo Hornet 2 Person Tent" carry="YES" >
+            <components>
+                <item name="Tent and fly" ounces="23"/>
+                <item name="Poles" ounces="7.7"/>
+                <item name="Stakes (6)" ounces="3.6"/>
+                <item name="Stuff sacks" ounces="1.8"/>
+                <item name="Tie-out chord" ounces="0.7"/>
+                <item name="Pole repair tube" ounces="0.3"/>
+            </components>
+        </item>
+        <item name="Nemo Hornet 1 Person Tent" carry="NO" >
+            <components>
+                <item name="Tent and fly" ounces="18.72"/>
+                <item name="Poles" ounces="6.6"/>
+                <item name="Stakes (6)" ounces="3.2"/>
+                <item name="Stuff sacks" ounces="1.63"/>
+                <item name="Tie-out chord" ounces="1.04"/>
+                <item name="Pole repair tube" ounces="0.316"/>
+            </components>
+        </item>
+        <item name="Hennesy Explorer Hammock" carry="NO" >
+            <components>
+                <item name="Tree straps" ounces="3.00"/>
+                <item name="Hammock" ounces="27.10"/>
+                <item name="Snake skins" ounces="3.50"/>
+                <item name="Asym Tarp" ounces="10.30"/>
+                <item name="Stakes (6)" ounces="2.59"/>
+                <item name="Stuff sack" ounces="0.79"/>
+            </components>
+        </item>
+        <item name="Hennesy Hex Tarp" ounces="21.70" carry="NO" />
+        <item name="Hennesy Supershelter " carry="NO" >
+            <components>
+                <item name="Undercover" ounces="9.30"/>
+                <item name="Foam pad" ounces="9.70"/>
+                <item name="Reflective blanket" ounces="2.08"/>
+                <item name="Stuff sack" ounces="0.79"/>
+            </components>
+        </item>
+        <item name="Tyvek Tent Footprint for Nemo Hornet 1" ounces="6.30" carry="NO" />
+        <item name="Tyvek Ground Sheet" ounces="2.70" carry="NO" />
+        <item name="Down 40 Degree Quilt" ounces="16.00" carry="NO" />
+        <item name="Down Sleeping Bag and Dry Bag" ounces="43.50" carry="YES" />
+        <item name="Thermolite Sleeping Bag Liner" ounces="9.00" carry="NO" />
+        <item name="Hoback 60 Degree Sleeping Bag" ounces="35.00" carry="NO" />
+        <item name="NeoAir Mattress" ounces="17.60" carry="YES" />
+        <item name="NeoAir Inflater" ounces="1.90" carry="YES" />
+        <item name="Inflatable pillow" ounces="3.11" carry="YES" />
+        <item name="Slumberjack pillow" ounces="5.50" carry="NO" />
+        <item name="Tarp" ounces="33.00" carry="NO" />
+        <item name="Thermarest Chair" ounces="11.25" carry="NO" />
+        <item name="Alite Monarch Butterfly Chair" ounces="21.60" carry="YES" />
+    </category>
+
+    <category name="Kitchen">
+        <item name="JetBoil Stove" carry="NO" >
+            <components>
+                <item name="JetBoil Pot" ounces="7.50"/>
+                <item name="Burner" ounces="6.39"/>
+                <item name="Plastic cup" ounces="1.05"/>
+                <item name="Plastic lid" ounces="1.01"/>
+                <item name="Gas can tripod" ounces="0.99"/>
+            </components>
+        </item>
+        <item name="Pop can alcohol stove" carry="NO" >
+            <components>
+                <item name="Stove" ounces="0.78"/>
+                <item name="Pot stand" ounces="1.36"/>
+                <item name="Wind screen" ounces="0.62"/>
+                <item name="Stuff sack" ounces="0.37"/>
+            </components>
+        </item>
+        <item name="BRS Propane Stove" carry="YES" >
+            <components>
+                <item name="Burner" ounces="0.88"/>
+                <item name="Stuff sack" ounces="0.08"/>
+            </components>
+        </item>
+        <item name="Esbit Solid Fuel Stove (no pot)" carry="NO" >
+            <components>
+                <item name="Burner" ounces="2.04"/>
+                <item name="Stuff sack" ounces="0.37"/>
+            </components>
+        </item>
+        <item name="Esbit Pot" carry="YES" >
+            <components>
+                <item name="Pot" ounces="4.70"/>
+                <item name="Lid" ounces="1.44"/>
+                <item name="Reflectix Coozy" ounces="0.70"/>
+                <item name="Stuff sack" ounces="0.47"/>
+            </components>
+        </item>
+        <item name="GSI Cook Kit" carry="NO" >
+            <components>
+                <item name="Pot Grab" ounces="2.34"/>
+                <item name="Large Pot" ounces="9.00"/>
+                <item name="Large Lid" ounces="5.10"/>
+                <item name="Small Pot" ounces="5.70"/>
+                <item name="Small Lid" ounces="3.90"/>
+                <item name="Stuff sack" ounces="1.00"/>
+            </components>
+        </item>
+        <item name="MSR Whisperlite Stove" carry="NO" >
+            <components>
+                <item name="Stove" ounces="9.75"/>
+                <item name="Pump/Valve" ounces="1.85"/>
+                <item name="Heat Reflector Foil" ounces="0.52"/>
+                <item name="Wind screen" ounces="1.78"/>
+                <item name="Maintenance tools" ounces="0.88"/>
+                <item name="Stuff sack" ounces="0.72"/>
+            </components>
+        </item>
+        <item name="Mighty Lite stove stand" ounces="4.50" carry="NO" />
+        <item name="Lixada Titanium Wood Stove" ounces="12.20" carry="NO" />
+        <item name="Wind screen" ounces="0.70" carry="YES" />
+        <item name="Collapsible drinking cup" ounces="1.56" carry="YES" />
+        <item name="Bear Bag" ounces="1.53" carry="YES" />
+        <item name="Bear Cannister" ounces="43.60" carry="NO" />
+        <item name="Platypus Liter Bottle" ounces="0.88" quantity="3" carry="YES" />
+        <item name="MSR Dromedary Bag (black)" ounces="6.50" carry="NO" />
+        <item name="Pot scrub" ounces="0.22" carry="YES" />
+        <item name="Dish towel" ounces="0.20" carry="YES" />
+        <item name="Titanium Silverware" carry="NO" >
+            <components>
+                <item name="Spoon" ounces="0.54"/>
+                <item name="Fork" ounces="0.39"/>
+                <item name="Knife" ounces="0.43"/>
+                <item name="Carabiner" ounces="0.09"/>
+            </components>
+        </item>
+        <item name="Sea to Summit Spoon" ounces="0.36" carry="YES" />
+        <item name="Plastic Spork" ounces="0.36" carry="NO" />
+        <item name="Pot grab" ounces="1.54" carry="NO" />
+        <item name="Blue enamel mug" ounces="7.50" carry="NO" />
+        <item name="Sawyer Squeeze water filter" carry="NO" >
+            <components>
+                <item name="Filter" ounces="2.53"/>
+                <item name="Dirty water bottle" ounces="2.37"/>
+                <item name="Back-flush adapter" ounces="0.50"/>
+                <item name="Stuff sack" ounces="0.48"/>
+            </components>
+        </item>
+        <item name="Neck Knife" ounces="2.02" carry="YES" />
+        <item name="Gerber Sheath Knife" ounces="7.50" carry="NO" />
+        <item name="Gallon Zip-lock for food" ounces="0.01" carry="YES" />
+    </category>
+
+    <category name="Bathroom">
+        <item name="Toothbrush" ounces="0.76" carry="YES" />
+        <item name="Hand sanitizer" ounces="2.17" carry="YES" />
+        <item name="Toilet paper" ounces="2.50" carry="YES" />
+        <item name="Deuce Cat-hole trowel" ounces="0.60" carry="YES" />
+        <item name="Tek Pack Towel" ounces="5.25" carry="NO" />
+        <item name="Pharmaceuticals" ounces="0.25" carry="YES" />
+        <item name="First aid kit" ounces="7.40" carry="NO" />
+    </category>
+
+    <category name="Clothing">
+        <item name="Dry bag for clothing" ounces="1.53" carry="YES" />
+        <item name="Spare socks" ounces="3.37" carry="YES" />
+        <item name="Light wool sweater" ounces="14.00" carry="YES" />
+        <item name="Northface DNP Jacket" ounces="12.00" carry="YES" />
+        <item name="Sandals" ounces="21.00" carry="NO" />
+    </category>
+
+    <category name="Consumables">
+        <item name="Liters water" ounces="35.20" quantity="3" carry="YES" />
+        <item name="Hot Cocoa Mix" ounces="1.43" quantity="2" carry="YES" />
+        <item name="Instant Oatmel" ounces="1.66" quantity="1" carry="YES" />
+        <item name="Freeze Dried Beef Stroganoff" ounces="4.50" carry="YES" />
+        <item name="Freeze Dried Scrambled Eggs" ounces="3.00" carry="NO" />
+        <item name="Thin Oreos" ounces="0.275" quantity="12" carry="YES" />
+        <item name="Oriental Trail Mix" ounces="9.50" carry="NO" />
+        <item name="Cashews" ounces="4.75" carry="NO" />
+        <item name="100 grams JetBoil gas" ounces="7.00" carry="YES" />
+        <item name="16 oz White gas" ounces="12.00" carry="NO" />
+        <item name="13 oz alcohol fuel" ounces="8.30" carry="NO" />
+        <item name="12 Esbit 14-gram fuel cubes" ounces="0.52" quantity="1" carry="NO" />
+        <item name="22 oz White Gas bottle" ounces="5.25" carry="NO" />
+        <item name="33 oz White Gas bottle" ounces="8.00" carry="NO" />
+    </category>
+
+    <category name="Miscelaneous">
+        <item name="Sunscreen" ounces="1.78" carry="NO" />
+        <item name="Lip Balm" ounces="0.31" carry="NO" />
+        <item name="Mosquito Repellent" ounces="2.12" carry="NO" />
+        <item name="Mosquito Head Net" ounces="0.25" carry="NO" />
+        <item name="Fire Starter Kit" carry="NO" >
+            <components>
+                <item name="Cigarette lighter" ounces="0.76"/>
+                <item name="Flint and steel" ounces="0.92"/>
+                <item name="Char cloth" ounces="1.77"/>
+                <item name="Tinder" ounces="0.14"/>
+            </components>
+        </item>
+        <item name="Fire blower tube" ounces="1.05" carry="NO" />
+        <item name="Emergency blanket" ounces="1.58" carry="NO" />
+        <item name="Para-chord" ounces="2.08" carry="NO" />
+        <item name="Cable ties, safety pins" ounces="0.95" carry="NO" />
+        <item name="Zip-locks for trash" ounces="0.96" carry="NO" />
+        <item name="GoPro" ounces="7.50" carry="NO" />
+        <item name="Watch" ounces="0.73" carry="NO" />
+        <item name="Tablet computer" ounces="12.00" carry="NO" />
+        <item name="Head lamp" ounces="2.17" carry="YES" />
+        <item name="Spare AAA batteries" ounces="0.43" quantity="2" carry="NO" />
+        <item name="Schwinn LED light" ounces="0.58" carry="NO" />
+    </category>
+
+    <category name="Not In Pack">
+        <item name="Trekking Poles" ounces="17.00" carry="YES" />
+        <item name="Canon G7X Camera" ounces="11.30" carry="YES" />
+        <item name="Hand held GPS" ounces="7.00" carry="YES" />
+        <item name="Cell phone" ounces="7.00" carry="YES" />
+        <item name="Hiking socks" ounces="3.37" carry="YES" />
+        <item name="OR sun hat" ounces="3.20" carry="YES" />
+        <item name="Cotton T Shirt" ounces="12.00" carry="YES" />
+        <item name="Underwear" ounces="3.50" carry="YES" />
+        <item name="Zip-off pants/shorts" ounces="14.00" carry="YES" />
+        <item name="Web Belt" ounces="1.50" carry="YES" />
+        <item name="Hiking boots" ounces="42.00" carry="YES" />
+        <item name="Wallet" ounces="5.00" carry="YES" />
+        <item name="Sunglasses (clip on)" ounces="1.25" carry="YES" />
+    </category>
+</inventory>

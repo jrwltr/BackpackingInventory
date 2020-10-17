@@ -1,350 +1,465 @@
 use strict;
+use XML::Simple qw(:strict);
+$XML::Simple::PREFERRED_PARSER = 'XML::Parser';
+use Socket;
+use IO::Select;
+use threads;
+use threads::shared;
 
-# The Flags string contains "I" if the item is to be included on the hike.
-# The Flags string contains "P" if the item is to be carried in the pack.
-my %Categories = ( 
-                    Hiking              => [
-    { Item => "ULA OHM 2.0 63 Liter Pack",                         OZ => 34.50, Flags => "IP" },
-    { Item => "Gregory Zulu 40 Liter Pack",                        OZ => 37.00, Flags => " P" },
-    { Item => "Jack Wolfskin Yak III 90 Liter Pack",               OZ => 96.00, Flags => " P" },
-    { Item => "Large Pack Rain Cover",                             OZ =>  8.00, Flags => " P" },
-    { Item => "Osprey  32 Liter Pack",                             OZ => 40.00, Flags => " P" },
-    { Item => "Trekking Poles",                                    OZ => 17.00, Flags => "I " },
-    { Item => "Compass",                                           OZ =>  0.72, Flags => " P" },
-    { Item => "Frog Togs Rain Gear",                               OZ => 14.00, Flags => " P" },
-    { Item => "Maps",                                              OZ =>  2.20, Flags => "IP" },
-    { Item => "Whistle",                                           OZ =>  0.31, Flags => "IP" },
-    { Item => "Watch",                                             OZ =>  0.73, Flags => " P" },
-    { Item => "Canon G7X Camera",                                  OZ => 11.30, Flags => "I " },
-    { Item => "Hand held GPS",                                     OZ =>  7.00, Flags => "  " },
-    { Item => "Cell phone",                                        OZ =>  7.00, Flags => "I " },
-    { Item => "GoPro",                                             OZ =>  7.50, Flags => " P" },
-                                           ],
+my $BackedUp :shared;
+$BackedUp = 0;
+my $XML :shared;
+if (scalar @ARGV == 0) {
+    die "Requires file name on the command line.\n";
+}
+my $XMLFileName = $ARGV[0];
+if (!-e $XMLFileName) {
+    die "Can't find file $XMLFileName.\n";
+}
+$XML = shared_clone(XMLin($XMLFileName, forcearray => 1, keyattr => ['name']));
 
-                    Home                => [
-    { Item => "Nemo Hornet 2 Person Tent",                                      Flags => "IP", 
-        Components => { "Tent and fly" => 23,
-                        "Poles" => 7.7,
-                        "Stakes (6)" => 3.6,
-                        "Stuff sacks" => 1.8,
-                        "Tie-out chord" => 0.7,
-                        "Pole repair tube" => 0.3
-                      } },
-    { Item => "Nemo Hornet 1 Person Tent",                                      Flags => " P",
-        Components => {
-                      "Tent and fly" => 18.72,
-                      "Poles" => 6.6,
-                      "Stakes (6)" => 3.2,
-                      "Stuff sacks" => 1.63,
-                      "Tie-out chord" => 1.04,
-                      "Pole repair tube" => 0.316
-                      } },
-    { Item => "Hennesy Explorer Hammock",                                       Flags => " P",
-        Components => {
-                      "Tree straps" => 3.00,
-                      "Hammock" => 27.10,
-                      "Snake skins" => 3.50,
-                      "Asym Tarp" => 10.30,
-                      "Stakes (6)" => 2.59,
-                      "Stuff sack" => 0.79
-                      } },
-    { Item => "Hennesy Hex Tarp",                                  OZ => 21.70, Flags => " P" },
-    { Item => "Hennesy Supershelter ",                                          Flags => " P",
-        Components => {
-                      "Undercover" => 9.30,
-                      "Foam pad" => 9.70,
-                      "Reflective blanket" => 2.08,
-                      "Stuff sack" => 0.79
-                      } },
-    { Item => "Tyvek Tent Footprint for Nemo Hornet 1",            OZ =>  6.30, Flags => " P" },
-    { Item => "Tyvek Ground Sheet",                                OZ =>  2.70, Flags => " P" },
-    { Item => "Down 40 Degree Quilt",                              OZ => 16.00, Flags => "IP" },
-    { Item => "Down Sleeping Bag and Dry Bag",                     OZ => 43.50, Flags => " P" },
-    { Item => "Thermolite Sleeping Bag Liner",                     OZ =>  9.00, Flags => " P" },
-    { Item => "Hoback 60° Sleeping Bag",                           OZ => 35.00, Flags => " P" },
-    { Item => "NeoAir Mattress",                                   OZ => 17.60, Flags => "IP" },
-    { Item => "NeoAir Inflater",                                   OZ =>  1.90, Flags => "IP" },
-    { Item => "Inflatable pillow",                                 OZ =>  3.11, Flags => "IP" },
-    { Item => "Slumberjack pillow",                                OZ =>  5.50, Flags => " P" },
-    { Item => "Head lamp",                                         OZ =>  2.17, Flags => "IP" },
-    { Item => "Tablet computer for reading",                       OZ => 12.00, Flags => " P" },
-    { Item => "Tarp",                                              OZ => 33.00, Flags => " P" },
-    { Item => "Thermarest Chair",                                  OZ => 11.25, Flags => " P" },
-    { Item => "Alite Monarch Butterfly Chair",                     OZ => 21.60, Flags => "IP" },
-                                           ],
+my $DisplayAll = 1;
 
-                    Kitchen             => [
-    { Item => "JetBoil Stove",                                                  Flags => " P",
-        Components => {
-                      "JetBoil Pot" => 7.50,
-                      "Burner" => 6.39,
-                      "Plastic cup" => 1.05,
-                      "Plastic lid" => 1.01,
-                      "Gas can tripod" => 0.99
-                      } },
-    { Item => "Pop can alcohol stove",                                          Flags => " P",
-        Components => {
-                      "Stove" => 0.78,
-                      "Pot stand" => 1.36,
-                      "Wind screen" => 0.62,
-                      "Stuff sack" => 0.37
-                      } },
-    { Item => "BRS Propane Stove",                                              Flags => "IP",
-        Components => {
-                      "Burner" => 0.88,
-                      "Stuff sack" => 0.08
-                      } },
-    { Item => "Esbit Solid Fuel Stove (no pot)",                                Flags => " P",
-        Components => {
-                      "Burner" => 2.04,
-                      "Stuff sack" => 0.37
-                      } },
-    { Item => "Esbit Pot",                                                      Flags => "IP",
-        Components => {
-                      "Pot" => 4.70,
-                      "Lid" => 1.44,
-                      "Reflectix Coozy" => 0.70,
-                      "Stuff sack" => 0.47
-                      } },
-    { Item => "GSI Cook Kit",                                                   Flags => " P",
-        Components => {
-                      "Pot Grab" => 2.34,
-                      "Large Pot" => 9.00,
-                      "Large Lid" => 5.10,
-                      "Small Pot" => 5.70,
-                      "Small Lid" => 3.90,
-                      "Stuff sack" => 1.00
-                      } },
-    { Item => "MSR Whisperlite Stove",                                          Flags => " P",
-        Components => {
-                      "Stove" => 9.75,
-                      "Pump/Valve" => 1.85,
-                      "Heat Reflector Foil" => 0.52,
-                      "Wind screen" => 1.78,
-                      "Maintenance tools" => 0.88,
-                      "Stuff sack" => 0.72
-                      } },
-    { Item => "Mighty Lite stove stand",                           OZ =>  4.50, Flags => " P" },
-    { Item => "Lixada Titanium Wood Stove",                        OZ => 12.20, Flags => " P" },
-    { Item => "Wind screen",                                       OZ =>  0.70, Flags => " P" },
-    { Item => "Collapsible drinking cup",                          OZ =>  1.56, Flags => "IP" },
-    { Item => "Bear Bag",                                          OZ =>  1.53, Flags => "IP" },
-    { Item => "Bear Cannister",                                    OZ => 43.60, Flags => " P" },
-    { Item => "Platypus Liter Bottle",                  Qty =>  3, OZ =>  0.88, Flags => "IP" },
-    { Item => "MSR Dromedary Bag (black)",                         OZ =>  6.50, Flags => " P" },
-    { Item => "Pot scrub",                                         OZ =>  0.22, Flags => "IP" },
-    { Item => "Dish towel",                                        OZ =>  0.20, Flags => "IP" },
-    { Item => "Titanium Silverware",                                            Flags => " P",
-        Components => {
-                      "Spoon" => 0.54,
-                      "Fork" => 0.39,
-                      "Knife" => 0.43,
-                      "Carabiner" => 0.09
-                      } },
-    { Item => "Sea to Summit Spoon",                               OZ =>  0.36, Flags => "IP" },
-    { Item => "Plastic Spork",                                     OZ =>  0.36, Flags => " P" },
-    { Item => "Pot grab",                                          OZ =>  1.54, Flags => " P" },
-    { Item => "Blue enamel mug",                                   OZ =>  7.50, Flags => " P" },
-    { Item => "Sawyer Squeeze water filter",                                    Flags => " P",
-        Components => {
-                      "Filter" => 2.53,
-                      "Dirty water bottle" => 2.37,
-                      "Back-flush adapter" => 0.50,
-                      "Stuff sack" => 0.48
-                      } },
-    { Item => "Neck Knife",                                        OZ =>  2.02, Flags => "IP" },
-    { Item => "Gerber Sheath Knife",                               OZ =>  7.50, Flags => " P" },
-    { Item => "Gallon Zip-lock for food",                          OZ =>  0.01, Flags => "IP" },
-                                           ],
+my $CONSUMABLESNAME = 'Consumables';
+my $NOTINPACKNAME   = 'Not In Pack';
+my $TOTALNAME       = 'Total';
+my $INPACKNAME      = 'In Pack';
+my $BASENAME        = 'Base';
 
-                    Bathroom =>            [
-    { Item => "Toothbrush",                                        OZ =>  0.76, Flags => "IP" },
-    { Item => "Hand sanitizer",                                    OZ =>  2.17, Flags => "IP" },
-    { Item => "Toilet paper",                                      OZ =>  2.50, Flags => "IP" },
-    { Item => "Deuce Cat-hole trowel",                             OZ =>  0.60, Flags => "IP" },
-    { Item => "Tek Pack Towel",                                    OZ =>  5.25, Flags => " P" },
-    { Item => "Pharmaceuticals",                                   OZ =>  0.25, Flags => "IP" },
-    { Item => "First aid kit",                                     OZ =>  7.40, Flags => " P" },
-                                           ],
+my $YES             = 'YES';
+my $NO              = 'NO';
+my $CARRYTAG        = 'carry';
+my $CATEGORYTAG     = 'category';
+my $ITEMTAG         = 'item';
+my $QUANTITYTAG     = 'quantity';
+my $COMPONENTSTAG   = 'components';
+my $OUNCESTAG       = 'ounces';
 
-                    Clothing =>            [
-    { Item => "Dry bag for clothing",                              OZ =>  1.53, Flags => "IP" },
-    { Item => "Hiking socks",                                      OZ =>  3.37, Flags => "I " },
-    { Item => "Spare socks",                                       OZ =>  3.37, Flags => " P" },
-    { Item => "Light wool sweater",                                OZ => 14.00, Flags => "IP" },
-    { Item => "Northface DNP Jacket",                              OZ => 12.00, Flags => "IP" },
-    { Item => "Sandals",                                           OZ => 21.00, Flags => "IP" },
-    { Item => "OR sun hat",                                        OZ =>  3.20, Flags => "  " },
-    { Item => "Cotton T Shirt",                                    OZ => 12.00, Flags => "I " },
-    { Item => "Underwear",                                         OZ =>  3.50, Flags => "I " },
-    { Item => "Zip-off pants/shorts",                              OZ => 14.00, Flags => "I " },
-    { Item => "Web Belt",                                          OZ =>  1.50, Flags => "I " },
-    { Item => "Hiking boots",                                      OZ => 42.00, Flags => "I " },
-                                           ],
+my $PRINTVIEWBUTTONNAME = 'PrintView';
+my $EDITVIEWBUTTONNAME  = 'EditView';
+my $SAVEBUTTONNAME      = 'Save Changes';
 
-                    Consumables =>         [
-    { Item => "Liters water",                           Qty =>  2, OZ => 35.20, Flags => "IP" },
-    { Item => "Hot Cocoa Mix",                          Qty =>  2, OZ =>  1.43, Flags => "IP" },
-    { Item => "Instant Oatmel",                         Qty =>  1, OZ =>  1.66, Flags => "IP" },
-    { Item => "Freeze Dried Beef Stroganoff",                      OZ =>  4.50, Flags => " P" },
-    { Item => "Freeze Dried Scrambled Eggs",                       OZ =>  3.00, Flags => " P" },
-    { Item => "Thin Oreos",                             Qty => 20, OZ => 0.275, Flags => " P" },
-    { Item => "Oriental Trail Mix",                                OZ =>  9.50, Flags => " P" },
-    { Item => "Cashews",                                           OZ =>  4.75, Flags => " P" },
-    { Item => "100 grams JetBoil gas",                             OZ =>  7.00, Flags => "IP" },
-    { Item => "16 oz. White gas",                                  OZ => 12.00, Flags => " P" },
-    { Item => "13 oz alcohol fuel",                                OZ =>  8.30, Flags => " P" },
-    { Item => "12 Esbit 14-gram fuel cubes",            Qty => 12, OZ =>  0.52, Flags => " P" },
-    { Item => "22 fl. oz. White Gas bottle",                       OZ =>  5.25, Flags => " P" },
-    { Item => "33 fl. oz. White Gas bottle",                       OZ =>  8.00, Flags => " P" },
-                                           ],
+##############################################################################
+# Read in the __DATA__ at the end of this file and perform keyword 
+# replacement.  The result will be copied to the HTTP output stream
+# when a web page is requested.
+#
+my @KeyWords = (['CONSUMABLES', $CONSUMABLESNAME],
+                ['NOTINPACK'  , $NOTINPACKNAME  ],
+                ['TOTAL'      , $TOTALNAME      ],
+                ['INPACK'     , $INPACKNAME     ],
+                ['BASE'       , $BASENAME       ],
+                ['SAVEBUTTON' , $SAVEBUTTONNAME ],
+               );
+my @PageData;
+while (<DATA>) {
+    foreach my $KeyWord (@KeyWords) {
+        $_ =~ s/!!$KeyWord->[0]!!/$KeyWord->[1]/g;
+    }
+    push @PageData, $_;
+}
 
-                    Miscelaneous =>        [
-    { Item => "Wallet",                                            OZ =>  5.00, Flags => "I " },
-    { Item => "Sunglasses (clip on)",                              OZ =>  1.25, Flags => "I " },
-    { Item => "Sunscreen",                                         OZ =>  1.78, Flags => " P" },
-    { Item => "Lip Balm",                                          OZ =>  0.31, Flags => " P" },
-    { Item => "Mosquito Repellent",                                OZ =>  2.12, Flags => " P" },
-    { Item => "Mosquito Head Net",                                 OZ =>  0.25, Flags => " P" },
-    { Item => "Spare AAA batteries",                    Qty =>  2, OZ =>  0.43, Flags => "IP" },
-    { Item => "Schwinn LED light",                                 OZ =>  0.58, Flags => "IP" },
-    { Item => "Fire Starter Kit",                                               Flags => "IP",
-        Components => {
-                      "Cigarette lighter" => 0.76,
-                      "Flint and steel" => 0.92,
-                      "Char cloth" => 1.77,
-                      "Tinder" => 0.14,
-                      } },
-    { Item => "Fire blower tube",                                  OZ =>  1.05, Flags => "IP" },
-    { Item => "Emergency blanket",                                 OZ =>  1.58, Flags => " P" },
-    { Item => "Para-chord",                                        OZ =>  2.08, Flags => "IP" },
-    { Item => "Cable ties, safety pins",                           OZ =>  0.95, Flags => "IP" },
-    { Item => "Zip-locks for trash",                               OZ =>  0.96, Flags => "IP" },
-                                           ],
-                 );
+##############################################################################
+# Start the web server, listen for connections, and respond to requests.
+#
+$|  = 1;
 
-my $TotalOunces = 0;
-my $InPackOunces = 0;
-my $WornOunces = 0;
-my $BaseOunces = 0;
+local *S;
 
-my %CategoryOunces;
-my $Lines;
-my @CategoryLines;
-foreach my $C (sort keys %Categories) {
-    $Lines = 0;
-    $CategoryOunces{$C} = 0;
-    foreach my $I (@{$Categories{$C}}) {
-        if (index($I->{Flags}, 'I') >= 0) {
-            $Lines++;
-            if (defined $I->{Components}) {
-                $I->{OZ} = 0;
-                foreach my $P (keys %{$I->{Components}}) {
-                    $Lines++;
-                    $I->{OZ} += $I->{Components}->{$P};
-                }
-            }
-            if (!defined $I->{Qty}) {
-                $I->{Qty} = 1;
-            }
-            my $Ounces = $I->{OZ} * $I->{Qty};
-            $CategoryOunces{$C} += $Ounces;
-            if (index($I->{Flags}, 'P') >= 0) {
-                $InPackOunces += $Ounces;
-            } else {
-                $WornOunces += $Ounces;
-            }
-            if ($C ne "Consumables" && index($I->{Flags}, 'P') >= 0) {
-               $BaseOunces += $Ounces;
+socket     (S, PF_INET   , SOCK_STREAM , getprotobyname('tcp')) or die "couldn't open socket: $!";
+setsockopt (S, SOL_SOCKET, SO_REUSEADDR, 1);
+bind       (S, sockaddr_in(8888, INADDR_ANY));
+listen     (S, 5)                                               or die "don't hear anything:  $!";
+
+my $ss = IO::Select->new();
+$ss -> add (*S);
+
+while(1) {
+  my @connections_pending = $ss->can_read();
+  foreach (@connections_pending) {
+    my $fh;
+    my $remote = accept($fh, $_);
+
+    my($port,$iaddr) = sockaddr_in($remote);
+    my $peeraddress = inet_ntoa($iaddr);
+
+    my $t = threads->create(\&new_connection, $fh);
+    $t->detach();
+  }
+}
+
+##############################################################################
+sub new_connection {
+  my $fh = shift;
+
+  # Parse the HTTP connection request data.
+  binmode $fh;
+
+  my %req;
+
+  $req{HEADER}={}; 
+
+  my $request_line = <$fh>;
+  my $first_line = "";
+
+  while ($request_line ne "\r\n") {
+     unless ($request_line) {
+       close $fh; 
+     }
+
+     chomp $request_line;
+
+     unless ($first_line) {
+       $first_line = $request_line;
+
+      my @parts = split(" ", $first_line);
+       if (@parts != 3) {
+         close $fh;
+       }
+
+       $req{METHOD} = $parts[0];
+       $req{OBJECT} = $parts[1];
+     }
+     else {
+       my ($name, $value) = split(": ", $request_line);
+       $name       = lc $name;
+       $req{HEADER}{$name} = $value;
+     }
+
+     $request_line = <$fh>;
+  }
+
+  http_request_handler($fh, \%req);
+
+  close $fh;
+}
+
+##############################################################################
+sub OuncesToPounds($) {
+    my $Ounces = shift;
+    return sprintf("%.2f", ($Ounces / 16) + .005);
+}
+
+##############################################################################
+sub http_request_handler {
+    my $fh     =   shift;
+    my $req_   =   shift;
+    my %req    =   %$req_;
+
+    $req{OBJECT} =~ s/\+/ /g;
+    $req{OBJECT} =~ s/%([0-9A-Fa-f]{2})/chr(hex("0x$1"))/ge;
+    if ($req{OBJECT} =~ /^\/submit\?$PRINTVIEWBUTTONNAME=/) {
+        # Print view button pressed.
+        $DisplayAll = 0;
+    } elsif ($req{OBJECT} =~ /^\/submit\?$EDITVIEWBUTTONNAME=/) {
+        # Edit view button pressed.
+        $DisplayAll = 1;
+    } elsif ($req{OBJECT} =~ /^\/submit\?$SAVEBUTTONNAME=/) {
+        # Save changes button pressed.
+        # Parse the request data and update the $XML data
+        # structure based on the contents.
+        $req{OBJECT} =~ s/^\/submit\?[\w\s]+?=.+?&//;
+        foreach my $C ( split('&', $req{OBJECT}) ) {
+            $C =~ /(.+)\\(.+)=([01])/;
+            my $Category = $1;
+            my $Item = $2;
+            my $Value = $3;
+            my $ItemHashRef = \%{$XML->{$CATEGORYTAG}->{$Category}->{$ITEMTAG}};
+            if ($Value eq '0') {
+                ($ItemHashRef->{$Item})->{$CARRYTAG} = $NO;
+            } elsif ($Value eq '1') {
+                ($ItemHashRef->{$Item})->{$CARRYTAG} = $YES;
             }
         }
-    }
-    $TotalOunces += $CategoryOunces{$C};
-    push @CategoryLines, [ $Lines, $C ];
-}
-
-@CategoryLines = sort {$a->[0] <=> $b->[0]} @CategoryLines;
-
-print '<html>';
-print '<body">';
-
-print '<table style="width:80%" border="1">';
-my @W = ( [ 'Total'     , $TotalOunces , 'black'  ], 
-          [ 'In Pack'   , $InPackOunces, 'blue'   ],
-          [ 'Worn'      , $WornOunces  , 'green'  ], 
-          [ 'Base'      , $BaseOunces  , 'black'  ],
-         );
-
-print '<tr>';
-foreach my $A (@W) {
-    print     '<th>';
-    print         '<p style="color:', $A->[2], ';font-size: x-large">';
-    printf(       '%s %.2f lbs', $A->[0], $A->[1] / 16);
-    print         '</p>';
-    print     '</th>';
-}
-print '</tr>';
-print '</table>';
-print '<br><br>';
-
-print '<table style="width:80%"border="1">';
-print '<tr>';
-my $CCount = 0;
-
-my $NumberOfColumns = 3;
-
-while (my $C = pop @CategoryLines) {
-    $C = $C->[1];
-
-    if ($CCount++ % $NumberOfColumns == 0) {
-        print '</tr><tr>';
-    }
-
-    print '<td valign="top">';
-
-    print '<p style="font-size: x-large">';
-    printf("%-16s  %.2f lbs\n\n", $C, $CategoryOunces{$C} / 16 );
-    print '</p>';
-    print '<table style=width:100%>';
-    foreach my $I (@{$Categories{$C}}) {
-        if (index($I->{Flags}, 'I') >= 0) {
-            my $Description;
-            if ($I->{Qty} != 1) {
-                $Description = sprintf("%d-%s", $I->{Qty}, $I->{Item});
+        # Save the new XML data after making a backup copy of the original file.
+        # Only create the backup file the first time through.
+        if ($BackedUp || rename($XMLFileName, $XMLFileName."~")) {
+            $BackedUp = 1;
+            if (open(OUT, '>', $XMLFileName)) {
+                print OUT XMLout($XML, keyattr => ['name']);
+                close OUT;
             } else {
-                $Description = $I->{Item};
+#                ???error message;
             }
-            print '<tr>';
-            print     '<td>';
-            print         '<p style="color:', index($I->{Flags}, 'P') >= 0 ? 'blue' : 'green', ';font-size: x-large">';
-            print           $Description;
-            print         '</p>';
-            print     '</td>';
-            print     '<td>';
-            print         '<p style="text-align: right;font-size: x-large">';
-            printf(           '%.2f', $I->{OZ} * $I->{Qty});
-            print         '</p>';
-            print     '</td>';
-            print '</tr>';
-            if (defined $I->{Components}) {
-                foreach my $P (sort keys %{$I->{Components}}) {
-                    print '<tr>';
-                    print     '<td>';
-                    print         '<p style="text-indent: 40px;font-size: x-large">';
-                    print             $P;
-                    print         '</p>';
-                    print     '</td>';
-                    print '</tr>';
+        } else {
+#           ???error message;
+        }
+    }
+
+    # Generate the web server response...
+    print $fh "HTTP/1.0 200 OK\r\n";
+    print $fh "Server: adp perl webserver\r\n";
+
+    print $fh "\r\n";
+
+    my $TotalPounds = 0;
+    my $InPackPounds = 0;
+    my $BasePounds = 0;
+
+    my %CategoryPounds;
+
+    # make a pass through the XML to compute the total, pack, and base weights
+    foreach my $C (sort keys %{$XML->{$CATEGORYTAG}}) {
+        $CategoryPounds{$C} = 0;
+        my $ItemHashRef = \%{$XML->{$CATEGORYTAG}->{$C}->{$ITEMTAG}};
+        foreach my $I (sort keys %$ItemHashRef) {
+            if (!defined(($ItemHashRef->{$I})->{$QUANTITYTAG})) {
+                ($ItemHashRef->{$I})->{$QUANTITYTAG} = 1;
+            }
+            if (($ItemHashRef->{$I})->{$CARRYTAG} eq $YES) {
+                if (defined(($ItemHashRef->{$I})->{$COMPONENTSTAG})) {
+                    my $ComponentHashRef = $ItemHashRef->{$I}->{$COMPONENTSTAG}[0]->{$ITEMTAG};
+                    $$ItemHashRef{$I}->{$OUNCESTAG} = 0;
+                    foreach my $C (sort keys %$ComponentHashRef) {
+                        $$ItemHashRef{$I}->{$OUNCESTAG} += $ComponentHashRef->{$C}->{$OUNCESTAG};
+                    }
+                }
+                my $Pounds = OuncesToPounds(($ItemHashRef->{$I})->{$OUNCESTAG} * ($ItemHashRef->{$I})->{$QUANTITYTAG});
+                $CategoryPounds{$C} += $Pounds;
+                if ($C ne $NOTINPACKNAME) {
+                    $InPackPounds += $Pounds;
+                }
+                if ($C ne $CONSUMABLESNAME && $C ne $NOTINPACKNAME) {
+                   $BasePounds += $Pounds;
                 }
             }
         }
+        $TotalPounds += $CategoryPounds{$C};
     }
-    print '</table>';
-    print '</td>';
-}
-print '</tr>';
-print '</table>';
 
-print '</body>';
-print '</html>';
+    $\ = "\n";
+    print $fh '<html>';
+    print $fh '<body>';
+
+    #################################################################
+    #Use this code to display the request info from the browser
+    #my %header = %{$req{HEADER}};
+    #print "Method: $req{METHOD}<br>";
+    #print "Object: $req{OBJECT}<br>";
+    #foreach my $r (keys %header) {
+    #  print $r, " = ", $header{$r} , "<br>";
+    #}
+    #################################################################
+
+    # generate the web page...
+
+    #################################################################
+    # Create a table to display total, in pack, and base weights
+    print $fh '<table style="width:80%" border="1">';
+    my @W = ( [ $TOTALNAME , $TotalPounds  ], 
+              [ $INPACKNAME, $InPackPounds ],
+              [ $BASENAME  , $BasePounds   ],
+             );
+
+    print $fh '<tr>';
+    foreach my $A (@W) {
+        print $fh     '<th>';
+        print $fh         '<p id="', $A->[0], '" style="font-size: x-large">';
+        print $fh             "$A->[0] ", sprintf('%.2f', $A->[1]);
+        print $fh         '</p>';
+        print $fh     '</th>';
+    }
+    print $fh '</tr>';
+    print $fh '</table>';
+    print $fh '<br>';
+
+    #################################################################
+    # Define the submit buttons
+    print $fh '<form action="submit">';
+
+    if ($DisplayAll) {
+        print $fh '<input type="submit" name="', $PRINTVIEWBUTTONNAME, '" value="Print View">';
+        print $fh '<input type="submit" name="', $SAVEBUTTONNAME     , '" value="Save" style="visibility:hidden">';
+    } else {
+        print $fh '<input type="submit" name="', $EDITVIEWBUTTONNAME , '" value="Edit View">';
+    }
+    print $fh '<br>';
+    print $fh '<br>';
+
+    #################################################################
+    # create a table containing the inventory data
+    print $fh '<table style="width:80%"border="1">';
+    print $fh '<tr>';
+    my $CCount = 0;
+
+    my $NumberOfColumns = 4;
+
+    foreach my $C (sort keys %{$XML->{$CATEGORYTAG}}) {
+        if ($CCount++ % $NumberOfColumns == 0) {
+            print $fh '</tr><tr>';
+        }
+
+        print $fh '<td valign="top">';
+
+        # display the category
+        print $fh '<p id="', $C, '" style="font-size: x-large">';
+        print $fh sprintf("%-16s %.2f lbs", $C, $CategoryPounds{$C} );
+        print $fh '</p>';
+
+        # display the items in the category
+        my $ItemHashRef = \%{$XML->{$CATEGORYTAG}->{$C}->{$ITEMTAG}};
+        foreach my $I (sort keys %$ItemHashRef) {
+            if ($DisplayAll || ($ItemHashRef->{$I})->{$CARRYTAG} eq $YES) {
+                print $fh '<div class="parent-check">';
+                print $fh     '<input type="hidden" value=0 name="', "$C\\$I", '">';
+                print $fh     '<input id="', $C, '" value=1 name="', "$C\\$I", '"';
+                if (!$DisplayAll) {
+                    print $fh          ' style="visibility:hidden" ';
+                }
+                print $fh         'type="checkbox"', (($ItemHashRef->{$I})->{$CARRYTAG} eq $YES) ? 'checked' : '', '>';
+                print $fh     '<label id="', sprintf(" %.2f", ($ItemHashRef->{$I})->{$OUNCESTAG} * ($ItemHashRef->{$I})->{$QUANTITYTAG}), '">';
+                if (($ItemHashRef->{$I})->{$QUANTITYTAG} != 1) {
+                    print $fh ($ItemHashRef->{$I})->{$QUANTITYTAG}, '-';
+                }
+                print $fh     $I;
+                print $fh     '</label>';
+                if (defined(($ItemHashRef->{$I})->{$COMPONENTSTAG})) {
+                    # display the sub-components of the item
+                    my $ComponentHashRef = $ItemHashRef->{$I}->{$COMPONENTSTAG}[0]->{$ITEMTAG};
+                    foreach my $P (sort keys %$ComponentHashRef) {
+                        print $fh '<div class="child-check">';
+                        print $fh     '<label>', $P, '</label>';
+                        print $fh '</div>';
+                    }
+                }
+                print $fh '</div>';
+            }
+        }
+    }
+    print $fh '</tr>';
+    print $fh '</table>';
+    print $fh '</form> ';
+    print $fh '</body>';
+    print $fh '</html>';
+
+    # copy the __DATA__ section to the output
+    foreach my $Line (@PageData) {
+        print $fh $Line;
+    }
+}
+
+##############################################################################
+# __DATA__ section contains HTML CSS style definitions and java script.  The
+# contents are copied directly to the HTTP connection along with the generated
+# XML.  Certain keywords are replaced with the contents of Perl variables.
+# These keywords look like this "!!KEYWORD!!".
+#
+__DATA__
+<style id="compiled-css" type="text/css">
+.child-check{
+  margin-left: 50px;
+  display: none;
+}
+
+.child-check.active{
+  display: block;
+}
+
+</style>
+
+<script type="text/javascript">//<![CDATA[
+
+/*##########################################################################*/
+var checks = document.querySelectorAll("input[type=checkbox]");
+
+for(var i = 0; i < checks.length; i++){
+    /* add an event listener for all checkboxes */
+    checks[i].addEventListener( 'change', function() {
+        const WeightRegEx = /\d+\.\d\d/;
+        const LbsRegEx    = /\d+\.\d\d lbs/;
+        var CheckPounds = Math.round((parseFloat(this.nextElementSibling.id) / 16) * 100) / 100;
+        this.nextElementSibling.style.color = "red";
+  
+        var TotalElement  = document.getElementById('!!TOTAL!!');
+        var InPackElement = document.getElementById('!!INPACK!!');
+        var BaseElement   = document.getElementById('!!BASE!!');
+  
+        var TotalPounds  = TotalElement .innerHTML.match(WeightRegEx);
+        var InPackPounds = InPackElement.innerHTML.match(WeightRegEx);
+        var BasePounds   = BaseElement  .innerHTML.match(WeightRegEx);
+  
+        TotalPounds      = parseFloat(TotalPounds[0]);
+        InPackPounds     = parseFloat(InPackPounds[0]);
+        BasePounds       = parseFloat(BasePounds[0]);
+  
+        var CategoryElement = document.getElementById(this.id);
+  
+        var CategoryPounds = CategoryElement.innerHTML.match(LbsRegEx);
+        CategoryPounds = parseFloat(CategoryPounds[0]);
+        if(this.checked) {
+             /* item was unselected, add the weight to the totals
+              * and un-hide the children components
+              */
+             showChildrenChecks(this);
+        } else {
+             /* item was unselected, subtract the weight from the totals
+              * and hide the children components
+              */
+             CheckPounds = -CheckPounds;
+             hideChildrenChecks(this)
+        }
+        CategoryPounds   = CategoryPounds + CheckPounds;
+        TotalPounds      = TotalPounds    + CheckPounds;
+        if (!CategoryElement.innerHTML.match(/!!NOTINPACK!!/)) {
+            InPackPounds = InPackPounds   + CheckPounds;
+        }
+        if (!CategoryElement.innerHTML.match(/!!CONSUMABLES!!/) &&
+            !CategoryElement.innerHTML.match(/!!NOTINPACK!!/)
+           )
+        {
+            BasePounds   = BasePounds     + CheckPounds;
+        }
+  
+        /* update the total weigths */
+        CategoryElement.innerHTML = CategoryElement.innerHTML.replace(LbsRegEx,    CategoryPounds.toFixed(2) + ' lbs');
+        TotalElement.innerHTML    = TotalElement.innerHTML.replace   (WeightRegEx, TotalPounds   .toFixed(2)         );
+        InPackElement.innerHTML   = InPackElement.innerHTML.replace  (WeightRegEx, InPackPounds  .toFixed(2)         );
+        BaseElement.innerHTML     = BaseElement.innerHTML.replace    (WeightRegEx, BasePounds    .toFixed(2)         );
+  
+        /* un-hide the "SAVE" button since changes were made */
+        var SaveButton = document.getElementsByName('!!SAVEBUTTON!!');
+        SaveButton[0].style.visibility = 'visible';
+    });
+    /* show or hide the children of a checkbox (components) */
+    if (checks[i].checked) {
+        showChildrenChecks(checks[i]);
+    } else {
+        hideChildrenChecks(checks[i])
+    }
+}
+
+/*##########################################################################*/
+/* un-hide the children of the checkbox that changed */
+function showChildrenChecks(elm) {
+   var pN = elm.parentNode;
+   var childCheks = pN.children;
+   
+  for(var i = 0; i < childCheks.length; i++){
+      if(hasClass(childCheks[i], 'child-check')){
+	      childCheks[i].classList.add("active");      
+      }
+  }
+}
+
+/*##########################################################################*/
+/* hide the children of the checkbox that changed */
+function hideChildrenChecks(elm) {
+   var pN = elm.parentNode;
+   var childCheks = pN.children;
+   
+  for(var i = 0; i < childCheks.length; i++){
+      if(hasClass(childCheks[i], 'child-check')){
+	      childCheks[i].classList.remove("active");      
+      }
+  }
+}
+
+/*##########################################################################*/
+function hasClass(elem, className) {
+    return new RegExp(' ' + className + ' ').test(' ' + elem.className + ' ');
+}
+
+/*##########################################################################*/
+//]]></script>
+
 
