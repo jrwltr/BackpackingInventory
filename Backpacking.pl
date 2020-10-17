@@ -1,4 +1,5 @@
 use strict;
+use File::Basename;
 use XML::Simple qw(:strict);
 $XML::Simple::PREFERRED_PARSER = 'XML::Parser';
 use Socket;
@@ -6,34 +7,52 @@ use IO::Select;
 use threads;
 use threads::shared;
 
+sub Usage($)
+{
+    print "\n";
+    print shift;
+    print "\n";
+    print "Usage:   ", basename($0), " <xml file name> <browser start command>\n";
+    print "Example: ", basename($0), " backpackingdata.xml \"start chrome\"\n";
+    print "\n";
+    die;
+}
+
 my $BackedUp :shared;
 $BackedUp = 0;
 my $XML :shared;
 if (scalar @ARGV == 0) {
-    die "Requires file name on the command line.\n";
+    Usage("Missing command line arguments.\n");
+} elsif (scalar @ARGV == 1) {
+    Usage("Missing browser start command.\n");
+} elsif (scalar @ARGV > 2) {
+    Usage("Too many command line arguments.\n");
 }
 my $XMLFileName = $ARGV[0];
+my $BrowserCommand = $ARGV[1];
+
 if (!-e $XMLFileName) {
-    die "Can't find file $XMLFileName.\n";
+    Usage("Can't find file $XMLFileName.\n");
 }
 $XML = shared_clone(XMLin($XMLFileName, forcearray => 1, keyattr => ['name']));
 
 my $DisplayAll = 1;
 
-my $CONSUMABLESNAME = 'Consumables';
-my $NOTINPACKNAME   = 'Not In Pack';
-my $TOTALNAME       = 'Total';
-my $INPACKNAME      = 'In Pack';
-my $BASENAME        = 'Base';
+my $CONSUMABLESNAME  = 'Consumables';
+my $NOTINPACKNAME    = 'Not In Pack';
+my $TOTALNAME        = 'Total';
+my $INPACKNAME       = 'In Pack';
+my $BASENAME         = 'Base';
 
-my $YES             = 'YES';
-my $NO              = 'NO';
-my $CARRYTAG        = 'carry';
-my $CATEGORYTAG     = 'category';
-my $ITEMTAG         = 'item';
-my $QUANTITYTAG     = 'quantity';
-my $COMPONENTSTAG   = 'components';
-my $OUNCESTAG       = 'ounces';
+my $YES              = 'YES';
+my $NO               = 'NO';
+my $CARRYTAG         = 'carry';
+my $CATEGORYTAG      = 'category';
+my $ITEMTAG          = 'item';
+my $QUANTITYTAG      = 'quantity';
+my $COMPONENTSTAG    = 'components';
+my $COMPONENTNAMETAG = 'cname';
+my $OUNCESTAG        = 'ounces';
 
 my $PRINTVIEWBUTTONNAME = 'PrintView';
 my $EDITVIEWBUTTONNAME  = 'EditView';
@@ -66,13 +85,20 @@ $|  = 1;
 
 local *S;
 
+my $TCPPort = 8888;
+
 socket     (S, PF_INET   , SOCK_STREAM , getprotobyname('tcp')) or die "couldn't open socket: $!";
 setsockopt (S, SOL_SOCKET, SO_REUSEADDR, 1);
-bind       (S, sockaddr_in(8888, INADDR_ANY));
+bind       (S, sockaddr_in($TCPPort, INADDR_ANY));
 listen     (S, 5)                                               or die "don't hear anything:  $!";
 
 my $ss = IO::Select->new();
 $ss -> add (*S);
+
+`$BrowserCommand http://localhost:$TCPPort`;
+if ($? != 0) {
+    Usage("Can't invoke browser with \"$BrowserCommand\".\n");
+}
 
 while(1) {
   my @connections_pending = $ss->can_read();
@@ -145,6 +171,7 @@ sub http_request_handler {
     my $fh     =   shift;
     my $req_   =   shift;
     my %req    =   %$req_;
+    my $ErrorMessage;
 
     $req{OBJECT} =~ s/\+/ /g;
     $req{OBJECT} =~ s/%([0-9A-Fa-f]{2})/chr(hex("0x$1"))/ge;
@@ -172,25 +199,19 @@ sub http_request_handler {
             }
         }
         # Save the new XML data after making a backup copy of the original file.
-        # Only create the backup file the first time through.
+        # Only create the backup file once.
         if ($BackedUp || rename($XMLFileName, $XMLFileName."~")) {
             $BackedUp = 1;
             if (open(OUT, '>', $XMLFileName)) {
                 print OUT XMLout($XML, keyattr => ['name']);
                 close OUT;
             } else {
-#                ???error message;
+                $ErrorMessage = "Can't open $XMLFileName for writing.";
             }
         } else {
-#           ???error message;
+            $ErrorMessage = "Can't create backup file $XMLFileName", "~.";
         }
     }
-
-    # Generate the web server response...
-    print $fh "HTTP/1.0 200 OK\r\n";
-    print $fh "Server: adp perl webserver\r\n";
-
-    print $fh "\r\n";
 
     my $TotalPounds = 0;
     my $InPackPounds = 0;
@@ -208,10 +229,10 @@ sub http_request_handler {
             }
             if (($ItemHashRef->{$I})->{$CARRYTAG} eq $YES) {
                 if (defined(($ItemHashRef->{$I})->{$COMPONENTSTAG})) {
-                    my $ComponentHashRef = $ItemHashRef->{$I}->{$COMPONENTSTAG}[0]->{$ITEMTAG};
+                    my $ComponentArrayRef = $ItemHashRef->{$I}->{$COMPONENTSTAG}[0]->{$ITEMTAG};
                     $$ItemHashRef{$I}->{$OUNCESTAG} = 0;
-                    foreach my $C (sort keys %$ComponentHashRef) {
-                        $$ItemHashRef{$I}->{$OUNCESTAG} += $ComponentHashRef->{$C}->{$OUNCESTAG};
+                    foreach my $C (@$ComponentArrayRef) {
+                        $$ItemHashRef{$I}->{$OUNCESTAG} += $C->{$OUNCESTAG};
                     }
                 }
                 my $Pounds = OuncesToPounds(($ItemHashRef->{$I})->{$OUNCESTAG} * ($ItemHashRef->{$I})->{$QUANTITYTAG});
@@ -226,6 +247,11 @@ sub http_request_handler {
         }
         $TotalPounds += $CategoryPounds{$C};
     }
+
+    # Generate the web server response...
+    print $fh "HTTP/1.0 200 OK\r\n";
+    print $fh "Server: adp perl webserver\r\n";
+    print $fh "\r\n";
 
     $\ = "\n";
     print $fh '<html>';
@@ -242,6 +268,13 @@ sub http_request_handler {
     #################################################################
 
     # generate the web page...
+
+    if (defined $ErrorMessage) {
+        print $fh '<div class="alert">';
+        print $fh     '<span class="closebtn">&times;</span>';
+        print $fh     "<strong>$ErrorMessage</strong>";
+        print $fh '</div>';
+    }
 
     #################################################################
     # Create a table to display total, in pack, and base weights
@@ -315,10 +348,10 @@ sub http_request_handler {
                 print $fh     '</label>';
                 if (defined(($ItemHashRef->{$I})->{$COMPONENTSTAG})) {
                     # display the sub-components of the item
-                    my $ComponentHashRef = $ItemHashRef->{$I}->{$COMPONENTSTAG}[0]->{$ITEMTAG};
-                    foreach my $P (sort keys %$ComponentHashRef) {
+                    my $ComponentArrayRef = $ItemHashRef->{$I}->{$COMPONENTSTAG}[0]->{$ITEMTAG};
+                    foreach my $P (@$ComponentArrayRef) {
                         print $fh '<div class="child-check">';
-                        print $fh     '<label>', $P, '</label>';
+                        print $fh     '<label>', $P->{$COMPONENTNAMETAG}, '</label>';
                         print $fh '</div>';
                     }
                 }
@@ -353,6 +386,30 @@ __DATA__
 
 .child-check.active{
   display: block;
+}
+
+.alert {
+  padding: 20px;
+  background-color: red;
+  color: white;
+  opacity: 1;
+  transition: opacity 0.6s;
+  margin-bottom: 15px;
+}
+
+.closebtn {
+  margin-left: 15px;
+  color: white;
+  font-weight: bold;
+  float: right;
+  font-size: 22px;
+  line-height: 20px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.closebtn:hover {
+  color: black;
 }
 
 </style>
@@ -460,6 +517,21 @@ function hasClass(elem, className) {
 }
 
 /*##########################################################################*/
+
+var close = document.getElementsByClassName("closebtn");
+var i;
+
+for (i = 0; i < close.length; i++) {
+  close[i].onclick = function(){
+    var div = this.parentElement;
+    div.style.opacity = "0";
+    setTimeout(function(){ div.style.display = "none"; }, 600);
+  }
+}
+
+/*##########################################################################*/
+
 //]]></script>
 
-
+</body>
+</html>
