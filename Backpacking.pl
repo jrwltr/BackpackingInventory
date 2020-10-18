@@ -36,7 +36,7 @@ if (!-e $XMLFileName) {
 }
 $XML = shared_clone(XMLin($XMLFileName, forcearray => 1, keyattr => ['name']));
 
-my $DisplayAll = 1;
+my $EditView = 1;
 
 my $CONSUMABLESNAME  = 'Consumables';
 my $NOTINPACKNAME    = 'Not In Pack';
@@ -176,7 +176,7 @@ sub http_request_handler {
     $req{OBJECT} =~ s/%([0-9A-Fa-f]{2})/chr(hex("0x$1"))/ge;
     if ($req{OBJECT} =~ /^\/submit\?$PRINTVIEWBUTTONNAME=/) {
         # Print view button pressed.
-        $DisplayAll = 0;
+        $EditView = 0;
     } elsif ($req{OBJECT} =~ /^\/submit\?$SAVEBUTTONNAME=/) {
         # Save changes button pressed.
         # Parse the request data and update the $XML data
@@ -252,6 +252,9 @@ sub http_request_handler {
     $\ = "\n";
     print $fh '<html>';
     print $fh '<body>';
+    if ($EditView) {
+        print $fh '<div class="backgroundgradient">';
+    }
 
     #################################################################
     #Use this code to display the request info from the browser
@@ -294,7 +297,7 @@ sub http_request_handler {
 
     #################################################################
     # Define the submit buttons
-    if ($DisplayAll) {
+    if ($EditView) {
         print $fh '<form action="submit">';
         print $fh '<input type="submit" class="push_button blue" formtarget="_blank" name="', $PRINTVIEWBUTTONNAME, '" value="Print View" >';
         print $fh '<input type="submit" class="push_button red"  name="', $SAVEBUTTONNAME     , '" value="Save"       style="visibility:hidden">';
@@ -325,11 +328,11 @@ sub http_request_handler {
         # display the items in the category
         my $ItemHashRef = \%{$XML->{$CATEGORYTAG}->{$C}->{$ITEMTAG}};
         foreach my $I (sort keys %$ItemHashRef) {
-            if ($DisplayAll || ($ItemHashRef->{$I})->{$CARRYTAG} eq $YES) {
+            if ($EditView || ($ItemHashRef->{$I})->{$CARRYTAG} eq $YES) {
                 print $fh '<div class="parent-check">';
                 print $fh     '<input type="hidden" value=0 name="', "$C\\$I", '">';
                 print $fh     '<input id="', $C, '" value=1 name="', "$C\\$I", '"';
-                if (!$DisplayAll) {
+                if (!$EditView) {
                     print $fh          ' style="visibility:hidden" ';
                 }
                 print $fh         'type="checkbox"', (($ItemHashRef->{$I})->{$CARRYTAG} eq $YES) ? 'checked' : '', '>';
@@ -354,8 +357,9 @@ sub http_request_handler {
     }
     print $fh '</tr>';
     print $fh '</table>';
-    if ($DisplayAll) {
+    if ($EditView) {
         print $fh '</form> ';
+        print $fh '</div>';
     }
     print $fh '</body>';
     print $fh '</html>';
@@ -374,6 +378,14 @@ sub http_request_handler {
 #
 __DATA__
 <style id="compiled-css" type="text/css">
+
+/*   ------------------------------------------------------------- */
+/*   CSS code for to provide background color gradient             */
+
+.backgroundgradient {
+  background-color: red; /* For browsers that do not support gradients */
+  background-image: linear-gradient(lightskyblue, powderblue);
+}
 
 /*   ------------------------------------------------------------- */
 /*   CSS code for checkboxes with collapsible child lists          */
@@ -425,6 +437,8 @@ __DATA__
 	text-align:center;
 	line-height:43px;
     margin-bottom: 15px;
+    margin-left: 15px;
+    margin-right: 15px;
 }
 
 .red {
@@ -458,13 +472,13 @@ __DATA__
 
 .blue {
 	text-shadow:-1px -1px 0 #2C7982;
-	background: #3EACBA;
+	background: powderblue;
 	border:1px solid #379AA4;
-	background-image:-webkit-linear-gradient(top, #48C6D4, #3EACBA);
-	background-image:-moz-linear-gradient(top, #48C6D4, #3EACBA);
-	background-image:-ms-linear-gradient(top, #48C6D4, #3EACBA);
-	background-image:-o-linear-gradient(top, #48C6D4, #3EACBA);
-	background-image:linear-gradient(top, #48C6D4, #3EACBA);
+	background-image:-webkit-linear-gradient(top, steelblue, powderblue);
+	background-image:-moz-linear-gradient(top, steelblue, powderblue);
+	background-image:-ms-linear-gradient(top, steelblue, powderblue);
+	background-image:-o-linear-gradient(top, steelblue, powderblue);
+	background-image:linear-gradient(top, steelblue, powderblue);
 	
 	-webkit-border-radius:5px;
 	-moz-border-radius:5px;
@@ -476,12 +490,12 @@ __DATA__
 }
 
 .blue:hover {
-	background: #48C6D4;
-	background-image:-webkit-linear-gradient(top, #3EACBA, #48C6D4);
-	background-image:-moz-linear-gradient(top, #3EACBA, #48C6D4);
-	background-image:-ms-linear-gradient(top, #3EACBA, #48C6D4);
-	background-image:-o-linear-gradient(top, #3EACBA, #48C6D4);
-	background-image:linear-gradient(top, #3EACBA, #48C6D4);
+	background: steelblue;
+	background-image:-webkit-linear-gradient(top, powderblue, steelblue);
+	background-image:-moz-linear-gradient(top, powderblue, steelblue);
+	background-image:-ms-linear-gradient(top, powderblue, steelblue);
+	background-image:-o-linear-gradient(top, powderblue, steelblue);
+	background-image:linear-gradient(top, powderblue, steelblue);
 }
 
 /*   ------------------------------------------------------------- */
@@ -555,7 +569,7 @@ for(var i = 0; i < checks.length; i++){
     if (checks[i].checked) {
         showChildrenChecks(checks[i]);
     } else {
-        hideChildrenChecks(checks[i])
+        hideChildrenChecks(checks[i]);
     }
 }
 
