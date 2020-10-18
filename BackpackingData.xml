@@ -12,7 +12,7 @@
     <item name="Dry bag for clothing" carry="YES" ounces="1.53" quantity="1" />
     <item name="Light wool sweater" carry="YES" ounces="14.00" quantity="1" />
     <item name="Northface DNP Jacket" carry="YES" ounces="12.00" quantity="1" />
-    <item name="Sandals" carry="NO" ounces="21.00" quantity="1" />
+    <item name="Sandals" carry="YES" ounces="21.00" quantity="1" />
     <item name="Spare socks" carry="YES" ounces="3.37" quantity="1" />
   </category>
   <category name="Consumables">
@@ -22,7 +22,7 @@
     <item name="16 oz White gas" carry="NO" ounces="12.00" quantity="1" />
     <item name="22 oz White Gas bottle" carry="NO" ounces="5.25" quantity="1" />
     <item name="33 oz White Gas bottle" carry="NO" ounces="8.00" quantity="1" />
-    <item name="Cashews" carry="NO" ounces="4.75" quantity="1" />
+    <item name="Cashews" carry="YES" ounces="4.75" quantity="1" />
     <item name="Freeze Dried Beef Stroganoff" carry="YES" ounces="4.50" quantity="1" />
     <item name="Freeze Dried Scrambled Eggs" carry="NO" ounces="3.00" quantity="1" />
     <item name="Hot Cocoa Mix" carry="YES" ounces="1.43" quantity="2" />
@@ -32,15 +32,15 @@
     <item name="Thin Oreos" carry="YES" ounces="0.275" quantity="12" />
   </category>
   <category name="Hiking">
-    <item name="Compass" carry="NO" ounces="0.72" quantity="1" />
-    <item name="Frog Togs Rain Gear" carry="NO" ounces="14.00" quantity="1" />
+    <item name="Compass" carry="YES" ounces="0.72" quantity="1" />
+    <item name="Frog Togs Rain Gear" carry="YES" ounces="14.00" quantity="1" />
     <item name="Gregory Zulu 40 Liter Pack" carry="NO" ounces="37.00" quantity="1" />
     <item name="Jack Wolfskin Yak III 90 Liter Pack" carry="NO" ounces="96.00" quantity="1" />
     <item name="Large Pack Rain Cover" carry="NO" ounces="8.00" quantity="1" />
     <item name="Maps" carry="YES" ounces="2.20" quantity="1" />
     <item name="Osprey  32 Liter Pack" carry="NO" ounces="40.00" quantity="1" />
     <item name="ULA OHM 2.0 63 Liter Pack" carry="YES" ounces="34.50" quantity="1" />
-    <item name="Whistle" carry="NO" ounces="0.31" quantity="1" />
+    <item name="Whistle" carry="YES" ounces="0.31" quantity="1" />
   </category>
   <category name="Home">
     <item name="Alite Monarch Butterfly Chair" carry="YES" ounces="21.60" quantity="1" />
@@ -189,9 +189,9 @@
     <item name="Wind screen" carry="YES" ounces="0.70" quantity="1" />
   </category>
   <category name="Miscelaneous">
-    <item name="Cable ties, safety pins" carry="NO" ounces="0.95" quantity="1" />
+    <item name="Cable ties, safety pins" carry="YES" ounces="0.95" quantity="1" />
     <item name="Emergency blanket" carry="NO" ounces="1.58" quantity="1" />
-    <item name="Fire Starter Kit" carry="NO" quantity="1">
+    <item name="Fire Starter Kit" carry="YES" ounces="3.59" quantity="1">
       <components>
         <item cname="Cigarette lighter" ounces="0.76" />
         <item cname="Flint and steel" ounces="0.92" />
@@ -205,13 +205,13 @@
     <item name="Lip Balm" carry="NO" ounces="0.31" quantity="1" />
     <item name="Mosquito Head Net" carry="NO" ounces="0.25" quantity="1" />
     <item name="Mosquito Repellent" carry="NO" ounces="2.12" quantity="1" />
-    <item name="Para-chord" carry="NO" ounces="2.08" quantity="1" />
-    <item name="Schwinn LED light" carry="NO" ounces="0.58" quantity="1" />
-    <item name="Spare AAA batteries" carry="NO" ounces="0.43" quantity="2" />
+    <item name="Para-chord" carry="YES" ounces="2.08" quantity="1" />
+    <item name="Schwinn LED light" carry="YES" ounces="0.58" quantity="1" />
+    <item name="Spare AAA batteries" carry="YES" ounces="0.43" quantity="2" />
     <item name="Sunscreen" carry="NO" ounces="1.78" quantity="1" />
     <item name="Tablet computer" carry="NO" ounces="12.00" quantity="1" />
     <item name="Watch" carry="NO" ounces="0.73" quantity="1" />
-    <item name="Zip-locks for trash" carry="NO" ounces="0.96" quantity="1" />
+    <item name="Zip-locks for trash" carry="YES" ounces="0.96" quantity="1" />
   </category>
   <category name="Not In Pack">
     <item name="Canon G7X Camera" carry="YES" ounces="11.30" quantity="1" />

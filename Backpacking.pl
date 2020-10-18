@@ -55,7 +55,6 @@ my $COMPONENTNAMETAG = 'cname';
 my $OUNCESTAG        = 'ounces';
 
 my $PRINTVIEWBUTTONNAME = 'PrintView';
-my $EDITVIEWBUTTONNAME  = 'EditView';
 my $SAVEBUTTONNAME      = 'Save Changes';
 
 ##############################################################################
@@ -178,9 +177,6 @@ sub http_request_handler {
     if ($req{OBJECT} =~ /^\/submit\?$PRINTVIEWBUTTONNAME=/) {
         # Print view button pressed.
         $DisplayAll = 0;
-    } elsif ($req{OBJECT} =~ /^\/submit\?$EDITVIEWBUTTONNAME=/) {
-        # Edit view button pressed.
-        $DisplayAll = 1;
     } elsif ($req{OBJECT} =~ /^\/submit\?$SAVEBUTTONNAME=/) {
         # Save changes button pressed.
         # Parse the request data and update the $XML data
@@ -298,16 +294,13 @@ sub http_request_handler {
 
     #################################################################
     # Define the submit buttons
-    print $fh '<form action="submit">';
-
     if ($DisplayAll) {
-        print $fh '<input type="submit" name="', $PRINTVIEWBUTTONNAME, '" value="Print View">';
-        print $fh '<input type="submit" name="', $SAVEBUTTONNAME     , '" value="Save" style="visibility:hidden">';
-    } else {
-        print $fh '<input type="submit" name="', $EDITVIEWBUTTONNAME , '" value="Edit View">';
+        print $fh '<form action="submit">';
+        print $fh '<input type="submit" class="push_button blue" formtarget="_blank" name="', $PRINTVIEWBUTTONNAME, '" value="Print View" >';
+        print $fh '<input type="submit" class="push_button red"  name="', $SAVEBUTTONNAME     , '" value="Save"       style="visibility:hidden">';
+        print $fh '<br>';
+        print $fh '<br>';
     }
-    print $fh '<br>';
-    print $fh '<br>';
 
     #################################################################
     # create a table containing the inventory data
@@ -361,7 +354,9 @@ sub http_request_handler {
     }
     print $fh '</tr>';
     print $fh '</table>';
-    print $fh '</form> ';
+    if ($DisplayAll) {
+        print $fh '</form> ';
+    }
     print $fh '</body>';
     print $fh '</html>';
 
@@ -379,6 +374,10 @@ sub http_request_handler {
 #
 __DATA__
 <style id="compiled-css" type="text/css">
+
+/*   ------------------------------------------------------------- */
+/*   CSS code for checkboxes with collapsible child lists          */
+
 .child-check{
   margin-left: 50px;
   display: none;
@@ -387,6 +386,9 @@ __DATA__
 .child-check.active{
   display: block;
 }
+
+/*   ------------------------------------------------------------- */
+/*   CSS code for error messages                                   */
 
 .alert {
   padding: 20px;
@@ -411,6 +413,78 @@ __DATA__
 .closebtn:hover {
   color: black;
 }
+
+/*   ------------------------------------------------------------- */
+/*   CSS code for pretty buttons                                   */
+
+.push_button {
+	position: relative;
+	width:220px;
+	height:40px;
+    font-size: x-large;
+	text-align:center;
+	line-height:43px;
+    margin-bottom: 15px;
+}
+
+.red {
+	text-shadow:-1px -1px 0 #A84155;
+	background: #D25068;
+	border:1px solid #D25068;
+	
+	background-image:-webkit-linear-gradient(top, #F66C7B, #D25068);
+	background-image:-moz-linear-gradient(top, #F66C7B, #D25068);
+	background-image:-ms-linear-gradient(top, #F66C7B, #D25068);
+	background-image:-o-linear-gradient(top, #F66C7B, #D25068);
+	background-image:linear-gradient(to bottom, #F66C7B, #D25068);
+	
+	-webkit-border-radius:5px;
+	-moz-border-radius:5px;
+	border-radius:5px;
+	
+	-webkit-box-shadow:0 1px 0 rgba(255, 255, 255, .5) inset, 0 -1px 0 rgba(255, 255, 255, .1) inset, 0 4px 0 #AD4257, 0 4px 2px rgba(0, 0, 0, .5);
+	-moz-box-shadow:0 1px 0 rgba(255, 255, 255, .5) inset, 0 -1px 0 rgba(255, 255, 255, .1) inset, 0 4px 0 #AD4257, 0 4px 2px rgba(0, 0, 0, .5);
+	box-shadow:0 1px 0 rgba(255, 255, 255, .5) inset, 0 -1px 0 rgba(255, 255, 255, .1) inset, 0 4px 0 #AD4257, 0 4px 2px rgba(0, 0, 0, .5);
+}
+
+.red:hover {
+	background: #F66C7B;
+	background-image:-webkit-linear-gradient(top, #D25068, #F66C7B);
+	background-image:-moz-linear-gradient(top, #D25068, #F66C7B);
+	background-image:-ms-linear-gradient(top, #D25068, #F66C7B);
+	background-image:-o-linear-gradient(top, #D25068, #F66C7B);
+	background-image:linear-gradient(top, #D25068, #F66C7B);
+}
+
+.blue {
+	text-shadow:-1px -1px 0 #2C7982;
+	background: #3EACBA;
+	border:1px solid #379AA4;
+	background-image:-webkit-linear-gradient(top, #48C6D4, #3EACBA);
+	background-image:-moz-linear-gradient(top, #48C6D4, #3EACBA);
+	background-image:-ms-linear-gradient(top, #48C6D4, #3EACBA);
+	background-image:-o-linear-gradient(top, #48C6D4, #3EACBA);
+	background-image:linear-gradient(top, #48C6D4, #3EACBA);
+	
+	-webkit-border-radius:5px;
+	-moz-border-radius:5px;
+	border-radius:5px;
+	
+	-webkit-box-shadow:0 1px 0 rgba(255, 255, 255, .5) inset, 0 -1px 0 rgba(255, 255, 255, .1) inset, 0 4px 0 #338A94, 0 4px 2px rgba(0, 0, 0, .5);
+	-moz-box-shadow:0 1px 0 rgba(255, 255, 255, .5) inset, 0 -1px 0 rgba(255, 255, 255, .1) inset, 0 4px 0 #338A94, 0 4px 2px rgba(0, 0, 0, .5);
+	box-shadow:0 1px 0 rgba(255, 255, 255, .5) inset, 0 -1px 0 rgba(255, 255, 255, .1) inset, 0 4px 0 #338A94, 0 4px 2px rgba(0, 0, 0, .5);
+}
+
+.blue:hover {
+	background: #48C6D4;
+	background-image:-webkit-linear-gradient(top, #3EACBA, #48C6D4);
+	background-image:-moz-linear-gradient(top, #3EACBA, #48C6D4);
+	background-image:-ms-linear-gradient(top, #3EACBA, #48C6D4);
+	background-image:-o-linear-gradient(top, #3EACBA, #48C6D4);
+	background-image:linear-gradient(top, #3EACBA, #48C6D4);
+}
+
+/*   ------------------------------------------------------------- */
 
 </style>
 
@@ -533,5 +607,3 @@ for (i = 0; i < close.length; i++) {
 
 //]]></script>
 
-</body>
-</html>
