@@ -57,17 +57,22 @@ my $OUNCESTAG        = 'ounces';
 my $PRINTVIEWBUTTONNAME = 'PrintView';
 my $SAVEBUTTONNAME      = 'Save Changes';
 
+my $UNCHANGEDCOLORNAME = 'black';
+my $CHANGEDCOLORNAME   = 'red';
+
 ##############################################################################
 # Read in the __DATA__ at the end of this file and perform keyword 
 # replacement.  The result will be copied to the HTTP output stream
 # when a web page is requested.
 #
-my @KeyWords = (['CONSUMABLES', $CONSUMABLESNAME],
-                ['NOTINPACK'  , $NOTINPACKNAME  ],
-                ['TOTAL'      , $TOTALNAME      ],
-                ['INPACK'     , $INPACKNAME     ],
-                ['BASE'       , $BASENAME       ],
-                ['SAVEBUTTON' , $SAVEBUTTONNAME ],
+my @KeyWords = (['CONSUMABLES'   , $CONSUMABLESNAME    ],
+                ['NOTINPACK'     , $NOTINPACKNAME      ],
+                ['TOTAL'         , $TOTALNAME          ],
+                ['INPACK'        , $INPACKNAME         ],
+                ['BASE'          , $BASENAME           ],
+                ['SAVEBUTTON'    , $SAVEBUTTONNAME     ],
+                ['UNCHANGEDCOLOR', $UNCHANGEDCOLORNAME ],
+                ['CHANGEDCOLOR'  , $CHANGEDCOLORNAME   ],
                );
 my @PageData;
 while (<DATA>) {
@@ -286,8 +291,8 @@ sub http_request_handler {
     print $fh '<tr>';
     foreach my $A (@W) {
         print $fh     '<th>';
-        print $fh         '<p id="', $A->[0], '" style="font-size: x-large">';
-        print $fh             "$A->[0] ", sprintf('%.2f', $A->[1]);
+        print $fh         '<p style="font-size: x-large">';
+        print $fh             sprintf('%s <span id="%s">%.2f</span>', $A->[0], $A->[0], $A->[1]);
         print $fh         '</p>';
         print $fh     '</th>';
     }
@@ -321,8 +326,8 @@ sub http_request_handler {
         print $fh '<td valign="top">';
 
         # display the category
-        print $fh '<p id="', $C, '" style="font-size: x-large">';
-        print $fh sprintf("%-16s %.2f lbs", $C, $CategoryPounds{$C} );
+        print $fh '<p style="font-size: x-large">';
+        print $fh sprintf('%s <span id="%s">%.2f</span> lbs', $C, $C, $CategoryPounds{$C} );
         print $fh '</p>';
 
         # display the items in the category
@@ -336,7 +341,8 @@ sub http_request_handler {
                     print $fh          ' style="visibility:hidden" ';
                 }
                 print $fh         'type="checkbox"', (($ItemHashRef->{$I})->{$CARRYTAG} eq $YES) ? 'checked' : '', '>';
-                print $fh     '<label id="', sprintf(" %.2f", ($ItemHashRef->{$I})->{$OUNCESTAG} * ($ItemHashRef->{$I})->{$QUANTITYTAG}), '">';
+                print $fh     '<label id="', sprintf(" %.2f", ($ItemHashRef->{$I})->{$OUNCESTAG} * ($ItemHashRef->{$I})->{$QUANTITYTAG}), '" style="color:$UNCHANGEDCOLOR;font-size: large">';
+
                 if (($ItemHashRef->{$I})->{$QUANTITYTAG} != 1) {
                     print $fh ($ItemHashRef->{$I})->{$QUANTITYTAG}, '-';
                 }
@@ -505,32 +511,37 @@ __DATA__
 <script type="text/javascript">//<![CDATA[
 
 /*##########################################################################*/
-var checks = document.querySelectorAll("input[type=checkbox]");
+function getStorageName(E) {
+    return E.id.concat('_'.concat(E.nextElementSibling.innerHTML));
+}
 
+var checks = document.querySelectorAll("input[type=checkbox]");
 for(var i = 0; i < checks.length; i++){
     /* add an event listener for all checkboxes */
     checks[i].addEventListener( 'change', function() {
-        const WeightRegEx = /\d+\.\d\d/;
-        const LbsRegEx    = /\d+\.\d\d lbs/;
         var CheckPounds = Math.round((parseFloat(this.nextElementSibling.id) / 16) * 100) / 100;
-        this.nextElementSibling.style.color = "red";
+
+        var OriginalCheckState = sessionStorage.getItem(getStorageName(this));
+        if (( this.checked && OriginalCheckState == 0) ||
+            (!this.checked && OriginalCheckState == 1)
+           )
+        {
+            this.nextElementSibling.style.color = "!!CHANGEDCOLOR!!";
+        } else {
+            this.nextElementSibling.style.color = "!!UNCHANGEDCOLOR!!";
+        }
   
         var TotalElement  = document.getElementById('!!TOTAL!!');
         var InPackElement = document.getElementById('!!INPACK!!');
         var BaseElement   = document.getElementById('!!BASE!!');
+
+        var TotalPounds  = parseFloat(TotalElement .innerHTML);
+        var InPackPounds = parseFloat(InPackElement.innerHTML);
+        var BasePounds   = parseFloat(BaseElement  .innerHTML);
   
-        var TotalPounds  = TotalElement .innerHTML.match(WeightRegEx);
-        var InPackPounds = InPackElement.innerHTML.match(WeightRegEx);
-        var BasePounds   = BaseElement  .innerHTML.match(WeightRegEx);
-  
-        TotalPounds      = parseFloat(TotalPounds[0]);
-        InPackPounds     = parseFloat(InPackPounds[0]);
-        BasePounds       = parseFloat(BasePounds[0]);
-  
-        var CategoryElement = document.getElementById(this.id);
-  
-        var CategoryPounds = CategoryElement.innerHTML.match(LbsRegEx);
-        CategoryPounds = parseFloat(CategoryPounds[0]);
+        var CategoryPoundsElement = document.getElementById(this.id);
+        var CategoryPounds = CategoryPoundsElement.innerHTML;
+        CategoryPounds = parseFloat(CategoryPounds);
         if(this.checked) {
              /* item was unselected, add the weight to the totals
               * and un-hide the children components
@@ -543,32 +554,40 @@ for(var i = 0; i < checks.length; i++){
              CheckPounds = -CheckPounds;
              hideChildrenChecks(this)
         }
-        CategoryPounds   = CategoryPounds + CheckPounds;
-        TotalPounds      = TotalPounds    + CheckPounds;
-        if (!CategoryElement.innerHTML.match(/!!NOTINPACK!!/)) {
-            InPackPounds = InPackPounds   + CheckPounds;
-        }
-        if (!CategoryElement.innerHTML.match(/!!CONSUMABLES!!/) &&
-            !CategoryElement.innerHTML.match(/!!NOTINPACK!!/)
-           )
-        {
-            BasePounds   = BasePounds     + CheckPounds;
+        CategoryPounds     = CategoryPounds + CheckPounds;
+        TotalPounds        = TotalPounds    + CheckPounds;
+        if (this.id != "!!NOTINPACK!!") {
+            InPackPounds   = InPackPounds   + CheckPounds;
+            if (this.id != "!!CONSUMABLES!!") {
+                BasePounds = BasePounds     + CheckPounds;
+            }
         }
   
         /* update the total weigths */
-        CategoryElement.innerHTML = CategoryElement.innerHTML.replace(LbsRegEx,    CategoryPounds.toFixed(2) + ' lbs');
-        TotalElement.innerHTML    = TotalElement.innerHTML.replace   (WeightRegEx, TotalPounds   .toFixed(2)         );
-        InPackElement.innerHTML   = InPackElement.innerHTML.replace  (WeightRegEx, InPackPounds  .toFixed(2)         );
-        BaseElement.innerHTML     = BaseElement.innerHTML.replace    (WeightRegEx, BasePounds    .toFixed(2)         );
+        CategoryPoundsElement.innerHTML = CategoryPounds.toFixed(2);
+        TotalElement.innerHTML    = TotalPounds .toFixed(2);
+        InPackElement.innerHTML   = InPackPounds.toFixed(2);
+        BaseElement.innerHTML     = BasePounds  .toFixed(2);
   
-        /* un-hide the "SAVE" button since changes were made */
+        /* un-hide the "SAVE" button if changes were made */
         var SaveButton = document.getElementsByName('!!SAVEBUTTON!!');
-        SaveButton[0].style.visibility = 'visible';
+        SaveButton[0].style.visibility = 'hidden';
+        var checks = document.querySelectorAll("input[type=checkbox]");
+        for (var i = 0; i < checks.length; i++){
+            if (checks[i].nextElementSibling.style.color == "!!CHANGEDCOLOR!!") {
+                SaveButton[0].style.visibility = 'visible';
+                break;
+            }
+        }
     });
-    /* show or hide the children of a checkbox (components) */
+    /* show or hide the children of a checkbox (components)
+     * and save the initial value of the checkboxes
+     */
     if (checks[i].checked) {
+        sessionStorage.setItem(getStorageName(checks[i]), 1);
         showChildrenChecks(checks[i]);
     } else {
+        sessionStorage.setItem(getStorageName(checks[i]), 0);
         hideChildrenChecks(checks[i]);
     }
 }
