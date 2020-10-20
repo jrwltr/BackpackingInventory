@@ -257,6 +257,7 @@ sub http_request_handler {
     $\ = "\n";
     print $fh '<html>';
     print $fh '<body>';
+    print $fh '<form action="submit">';
     if ($EditView) {
         print $fh '<div class="backgroundgradient">';
     }
@@ -274,6 +275,7 @@ sub http_request_handler {
     # generate the web page...
 
     if (defined $ErrorMessage) {
+        print $fh '<br><br>';
         print $fh '<div class="alert">';
         print $fh     '<span class="closebtn">&times;</span>';
         print $fh     "<strong>$ErrorMessage</strong>";
@@ -282,17 +284,20 @@ sub http_request_handler {
 
     #################################################################
     # Create a table to display total, in pack, and base weights
-    print $fh '<table style="width:80%" border="1">';
-    my @W = ( [ $TOTALNAME , $TotalPounds  ], 
-              [ $INPACKNAME, $InPackPounds ],
-              [ $BASENAME  , $BasePounds   ],
-             );
-
+    print $fh '<br><br>';
+    print $fh '<table class="center_table" style="width:80%" border="1">';
     print $fh '<tr>';
-    foreach my $A (@W) {
+
+    foreach my $A (
+                   ( [ $TOTALNAME , $TotalPounds  ], 
+                     [ $INPACKNAME, $InPackPounds ],
+                     [ $BASENAME  , $BasePounds   ],
+                   )
+                  )
+    {
         print $fh     '<th>';
         print $fh         '<p style="font-size: x-large">';
-        print $fh             sprintf('%s <span id="%s">%.2f</span>', $A->[0], $A->[0], $A->[1]);
+        print $fh             sprintf('%s <span id="%s">%s</span>', $A->[0], $A->[0], $A->[1]);
         print $fh         '</p>';
         print $fh     '</th>';
     }
@@ -303,16 +308,16 @@ sub http_request_handler {
     #################################################################
     # Define the submit buttons
     if ($EditView) {
-        print $fh '<form action="submit">';
+        print $fh '<div class="center_buttons">';
         print $fh '<input type="submit" class="push_button blue" formtarget="_blank" name="', $PRINTVIEWBUTTONNAME, '" value="Print View" >';
         print $fh '<input type="submit" class="push_button red"  name="', $SAVEBUTTONNAME     , '" value="Save"       style="visibility:hidden">';
-        print $fh '<br>';
+        print $fh '</div>';
         print $fh '<br>';
     }
 
     #################################################################
     # create a table containing the inventory data
-    print $fh '<table style="width:80%"border="1">';
+    print $fh '<table class="center_table" style="width:80%"border="1">';
     print $fh '<tr>';
     my $CCount = 0;
 
@@ -327,7 +332,7 @@ sub http_request_handler {
 
         # display the category
         print $fh '<p style="font-size: x-large">';
-        print $fh sprintf('%s <span id="%s">%.2f</span> lbs', $C, $C, $CategoryPounds{$C} );
+        print $fh sprintf('%s <span id="%s">%s</span> lbs', $C, $C, $CategoryPounds{$C} );
         print $fh '</p>';
 
         # display the items in the category
@@ -352,7 +357,7 @@ sub http_request_handler {
                     # display the sub-components of the item
                     my $ComponentArrayRef = $ItemHashRef->{$I}->{$COMPONENTSTAG}[0]->{$ITEMTAG};
                     foreach my $P (@$ComponentArrayRef) {
-                        print $fh '<div class="child-check">';
+                        print $fh '<div class="components">';
                         print $fh     '<label>', $P->{$COMPONENTNAMETAG}, '</label>';
                         print $fh '</div>';
                     }
@@ -363,10 +368,11 @@ sub http_request_handler {
     }
     print $fh '</tr>';
     print $fh '</table>';
+    print $fh '<br><br>';
     if ($EditView) {
-        print $fh '</form> ';
         print $fh '</div>';
     }
+    print $fh '</form> ';
     print $fh '</body>';
     print $fh '</html>';
 
@@ -384,6 +390,16 @@ sub http_request_handler {
 #
 __DATA__
 <style id="compiled-css" type="text/css">
+/*   ------------------------------------------------------------- */
+.center_table {
+    margin-left: auto;
+    margin-right: auto;
+}
+.center_buttons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
 
 /*   ------------------------------------------------------------- */
 /*   CSS code for to provide background color gradient             */
@@ -394,14 +410,14 @@ __DATA__
 }
 
 /*   ------------------------------------------------------------- */
-/*   CSS code for checkboxes with collapsible child lists          */
+/*   CSS code for checkboxes with collapsible component lists      */
 
-.child-check{
+.components{
   margin-left: 50px;
   display: none;
 }
 
-.child-check.active{
+.components.active{
   display: block;
 }
 
@@ -515,6 +531,10 @@ function getStorageName(E) {
     return E.id.concat('_'.concat(E.nextElementSibling.innerHTML));
 }
 
+function updatePounds(element, Pounds) {
+    element.innerHTML = (parseFloat(element.innerHTML) + Pounds).toFixed(2);
+}
+
 var checks = document.querySelectorAll("input[type=checkbox]");
 for(var i = 0; i < checks.length; i++){
     /* add an event listener for all checkboxes */
@@ -531,43 +551,27 @@ for(var i = 0; i < checks.length; i++){
             this.nextElementSibling.style.color = "!!UNCHANGEDCOLOR!!";
         }
   
-        var TotalElement  = document.getElementById('!!TOTAL!!');
-        var InPackElement = document.getElementById('!!INPACK!!');
-        var BaseElement   = document.getElementById('!!BASE!!');
-
-        var TotalPounds  = parseFloat(TotalElement .innerHTML);
-        var InPackPounds = parseFloat(InPackElement.innerHTML);
-        var BasePounds   = parseFloat(BaseElement  .innerHTML);
-  
-        var CategoryPoundsElement = document.getElementById(this.id);
-        var CategoryPounds = CategoryPoundsElement.innerHTML;
-        CategoryPounds = parseFloat(CategoryPounds);
         if(this.checked) {
-             /* item was unselected, add the weight to the totals
+             /* item was selected, add the weight to the totals
               * and un-hide the children components
               */
-             showChildrenChecks(this);
+             showComponents(this);
         } else {
              /* item was unselected, subtract the weight from the totals
               * and hide the children components
               */
              CheckPounds = -CheckPounds;
-             hideChildrenChecks(this)
+             hideComponents(this)
         }
-        CategoryPounds     = CategoryPounds + CheckPounds;
-        TotalPounds        = TotalPounds    + CheckPounds;
+
+        updatePounds(document.getElementById(this.id), CheckPounds);
+        updatePounds(document.getElementById('!!TOTAL!!'), CheckPounds);
         if (this.id != "!!NOTINPACK!!") {
-            InPackPounds   = InPackPounds   + CheckPounds;
+            updatePounds(document.getElementById('!!INPACK!!'), CheckPounds);
             if (this.id != "!!CONSUMABLES!!") {
-                BasePounds = BasePounds     + CheckPounds;
+                updatePounds(document.getElementById('!!BASE!!'), CheckPounds);
             }
         }
-  
-        /* update the total weigths */
-        CategoryPoundsElement.innerHTML = CategoryPounds.toFixed(2);
-        TotalElement.innerHTML    = TotalPounds .toFixed(2);
-        InPackElement.innerHTML   = InPackPounds.toFixed(2);
-        BaseElement.innerHTML     = BasePounds  .toFixed(2);
   
         /* un-hide the "SAVE" button if changes were made */
         var SaveButton = document.getElementsByName('!!SAVEBUTTON!!');
@@ -585,35 +589,35 @@ for(var i = 0; i < checks.length; i++){
      */
     if (checks[i].checked) {
         sessionStorage.setItem(getStorageName(checks[i]), 1);
-        showChildrenChecks(checks[i]);
+        showComponents(checks[i]);
     } else {
         sessionStorage.setItem(getStorageName(checks[i]), 0);
-        hideChildrenChecks(checks[i]);
+        hideComponents(checks[i]);
     }
 }
 
 /*##########################################################################*/
-/* un-hide the children of the checkbox that changed */
-function showChildrenChecks(elm) {
+/* un-hide the components of the checkbox that changed */
+function showComponents(elm) {
    var pN = elm.parentNode;
-   var childCheks = pN.children;
+   var components = pN.children;
    
-  for(var i = 0; i < childCheks.length; i++){
-      if(hasClass(childCheks[i], 'child-check')){
-	      childCheks[i].classList.add("active");      
+  for(var i = 0; i < components.length; i++){
+      if(hasClass(components[i], 'components')){
+	      components[i].classList.add("active");      
       }
   }
 }
 
 /*##########################################################################*/
-/* hide the children of the checkbox that changed */
-function hideChildrenChecks(elm) {
+/* hide the components of the checkbox that changed */
+function hideComponents(elm) {
    var pN = elm.parentNode;
-   var childCheks = pN.children;
+   var components = pN.children;
    
-  for(var i = 0; i < childCheks.length; i++){
-      if(hasClass(childCheks[i], 'child-check')){
-	      childCheks[i].classList.remove("active");      
+  for(var i = 0; i < components.length; i++){
+      if(hasClass(components[i], 'components')){
+	      components[i].classList.remove("active");      
       }
   }
 }
