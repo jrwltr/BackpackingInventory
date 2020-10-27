@@ -1,11 +1,11 @@
+#???pretty-fy add/delete table
+#???add help screen?
+#???handle ounces -- don't store ounces if components are present?
+#                    etc...
 use strict;
 use File::Basename;
 use XML::Simple qw(:strict);
 $XML::Simple::PREFERRED_PARSER = 'XML::Parser';
-use Socket;
-use IO::Select;
-use threads;
-use threads::shared;
 
 sub Usage($)
 {
@@ -18,9 +18,7 @@ sub Usage($)
     die;
 }
 
-my $BackedUp :shared;
-$BackedUp = 0;
-my $XML :shared;
+my $XML;
 if (scalar @ARGV == 0) {
     Usage("Missing command line arguments.\n");
 } elsif (scalar @ARGV == 1) {
@@ -34,48 +32,87 @@ my $BrowserCommand = $ARGV[1];
 if (!-e $XMLFileName) {
     Usage("Can't find file $XMLFileName.\n");
 }
-$XML = shared_clone(XMLin($XMLFileName, forcearray => 1, keyattr => ['name']));
+$XML = XMLin($XMLFileName, forcearray => 1, keyattr => ['name']);
 
 my $EditView = 1;
 
-my $CONSUMABLESNAME  = 'Consumables';
-my $NOTINPACKNAME    = 'Not In Pack';
-my $TOTALNAME        = 'Total';
-my $INPACKNAME       = 'In Pack';
-my $BASENAME         = 'Base';
+my $CONSUMABLESNAME             = 'Consumables';
+my $NOTINPACKNAME               = 'Not In Pack';
+my $TOTALNAME                   = 'Total';
+my $INPACKNAME                  = 'In Pack';
+my $BASENAME                    = 'Base';
 
-my $YES              = 'YES';
-my $NO               = 'NO';
-my $CARRYTAG         = 'carry';
-my $CATEGORYTAG      = 'category';
-my $ITEMTAG          = 'item';
-my $QUANTITYTAG      = 'quantity';
-my $COMPONENTSTAG    = 'components';
-my $COMPONENTNAMETAG = 'cname';
-my $OUNCESTAG        = 'ounces';
+my $YES                         = 'YES';
+my $NO                          = 'NO';
+my $CARRYTAG                    = 'carry';
+my $CATEGORYTAG                 = 'category';
+my $ITEMTAG                     = 'item';
+my $QUANTITYTAG                 = 'quantity';
+my $COMPONENTSTAG               = 'components';
+my $COMPONENTNAMETAG            = 'cname';
+my $OUNCESTAG                   = 'ounces';
 
-my $PRINTVIEWBUTTONNAME = 'PrintView';
-my $SAVEBUTTONNAME      = 'Save Changes';
+my $PRINTVIEWBUTTONNAME         = 'PrintView';
+my $PRINTVIEWBUTTONVALUE        = 'PrintView';
+my $SAVEBUTTONNAME              = 'Save Changes';
+my $SAVEBUTTONVALUE             = 'Save';
 
-my $UNCHANGEDCOLORNAME = 'black';
-my $CHANGEDCOLORNAME   = 'red';
+my $ADDCATEGORYNAME             = 'categoryname';
+my $ADDITEMNAME                 = 'itemname';
+my $ADDWEIGHTNAME               = 'itemweight';
+my $ADDQUANTITYNAME             = 'itemquantity';
+my $ADDCOMPONENTNAME            = 'itemcomponent[]';
+my $ADDCOMPONENTWEIGHTNAME      = 'itemcomponentweight[]';
+my $ADDBUTTONNAME               = 'AddItem';
+my $ADDBUTTONVALUE              = 'Add/Update Item';
+
+my $DELITEMNAME                 = 'itemname';
+my $DELBUTTONNAME               = 'DeleteItem';
+my $DELBUTTONVALUE              = 'Delete Item';
+
+my $UNCHANGEDCOLOR              = 'black';
+my $CHANGEDCOLOR                = 'red';
+
+my $ITEM_DEL_CHAR               = '&minus;';
+my $ITEM_ADD_CHAR               = '&plus;';
+
+my $ITEMLABEL                   = 'itemlabel';
+my $CLOSEBTN                    = 'closebtn';
+
+my $MAXCOMPONENTS               = 10;
 
 ##############################################################################
 # Read in the __DATA__ at the end of this file and perform keyword 
 # replacement.  The result will be copied to the HTTP output stream
 # when a web page is requested.
 #
-my @KeyWords = (['CONSUMABLES'   , $CONSUMABLESNAME    ],
-                ['NOTINPACK'     , $NOTINPACKNAME      ],
-                ['TOTAL'         , $TOTALNAME          ],
-                ['INPACK'        , $INPACKNAME         ],
-                ['BASE'          , $BASENAME           ],
-                ['SAVEBUTTON'    , $SAVEBUTTONNAME     ],
-                ['UNCHANGEDCOLOR', $UNCHANGEDCOLORNAME ],
-                ['CHANGEDCOLOR'  , $CHANGEDCOLORNAME   ],
+my @KeyWords = (
+                ['ADDCATEGORYNAME'       , $ADDCATEGORYNAME        ],
+                ['ADDCOMPONENTNAME'      , $ADDCOMPONENTNAME       ],
+                ['ADDCOMPONENTWEIGHTNAME', $ADDCOMPONENTWEIGHTNAME ],
+                ['ADDITEMNAME'           , $ADDITEMNAME            ],
+                ['ADDQUANTITYNAME'       , $ADDQUANTITYNAME        ],
+                ['ADDWEIGHTNAME'         , $ADDWEIGHTNAME          ],
+                ['BASE'                  , $BASENAME               ],
+                ['CATEGORYTAG'           , $CATEGORYTAG            ],
+                ['CHANGEDCOLOR'          , $CHANGEDCOLOR           ],
+                ['CLOSEBTN'              , $CLOSEBTN               ],
+                ['COMPONENTSTAG'         , $COMPONENTSTAG          ],
+                ['CONSUMABLES'           , $CONSUMABLESNAME        ],
+                ['INPACK'                , $INPACKNAME             ],
+                ['ITEM_ADD_CHAR'         , $ITEM_ADD_CHAR          ],
+                ['ITEM_DEL_CHAR'         , $ITEM_DEL_CHAR          ],
+                ['ITEMLABEL'             , $ITEMLABEL              ],
+                ['MAXCOMPONENTS'         , $MAXCOMPONENTS          ],
+                ['NOTINPACK'             , $NOTINPACKNAME          ],
+                ['OUNCESTAG'             , $OUNCESTAG              ],
+                ['QUANTITYTAG'           , $QUANTITYTAG            ],
+                ['SAVEBUTTON'            , $SAVEBUTTONNAME         ],
+                ['TOTAL'                 , $TOTALNAME              ],
+                ['UNCHANGEDCOLOR'        , $UNCHANGEDCOLOR         ],
                );
 my @PageData;
-while (<DATA>) {
+while (<MyWebServer::DATA>) {
     foreach my $KeyWord (@KeyWords) {
         $_ =~ s/!!$KeyWord->[0]!!/$KeyWord->[1]/g;
     }
@@ -85,84 +122,42 @@ while (<DATA>) {
 ##############################################################################
 # Start the web server, listen for connections, and respond to requests.
 #
-$|  = 1;
-
-local *S;
-
 my $TCPPort = 8888;
-
-socket     (S, PF_INET   , SOCK_STREAM , getprotobyname('tcp')) or die "couldn't open socket: $!";
-setsockopt (S, SOL_SOCKET, SO_REUSEADDR, 1);
-bind       (S, sockaddr_in($TCPPort, INADDR_ANY));
-listen     (S, 5)                                               or die "don't hear anything:  $!";
-
-my $ss = IO::Select->new();
-$ss -> add (*S);
 
 `$BrowserCommand http://localhost:$TCPPort`;
 if ($? != 0) {
     Usage("Can't invoke browser with \"$BrowserCommand\".\n");
 }
 
-while(1) {
-  my @connections_pending = $ss->can_read();
-  foreach (@connections_pending) {
-    my $fh;
-    my $remote = accept($fh, $_);
-
-    my($port,$iaddr) = sockaddr_in($remote);
-    my $peeraddress = inet_ntoa($iaddr);
-
-    my $t = threads->create(\&new_connection, $fh);
-    $t->detach();
-  }
+package MyWebServer;
+use HTTP::Server::Simple::CGI;
+use base qw(HTTP::Server::Simple::CGI);
+ 
+my %dispatch = (
+    '/submit' => \&submit_handler,
+    '/' => \&GeneratePage,
+    # ...
+);
+ 
+sub handle_request {
+    my $self = shift;
+    my $cgi  = shift;
+   
+    my $handler = $dispatch{$cgi->path_info()};
+ 
+    if (ref($handler) eq "CODE") {
+        print "HTTP/1.0 200 OK\r\n";
+        $handler->($cgi);
+    } else {
+        print "HTTP/1.0 404 Not found\r\n";
+        print $cgi->header,
+              $cgi->start_html('Not found'),
+              $cgi->h1('Not found'),
+              $cgi->end_html;
+    }
 }
-
-##############################################################################
-sub new_connection {
-  my $fh = shift;
-
-  # Parse the HTTP connection request data.
-  binmode $fh;
-
-  my %req;
-
-  $req{HEADER}={}; 
-
-  my $request_line = <$fh>;
-  my $first_line = "";
-
-  while ($request_line ne "\r\n") {
-     unless ($request_line) {
-       close $fh; 
-     }
-
-     chomp $request_line;
-
-     unless ($first_line) {
-       $first_line = $request_line;
-
-      my @parts = split(" ", $first_line);
-       if (@parts != 3) {
-         close $fh;
-       }
-
-       $req{METHOD} = $parts[0];
-       $req{OBJECT} = $parts[1];
-     }
-     else {
-       my ($name, $value) = split(": ", $request_line);
-       $name       = lc $name;
-       $req{HEADER}{$name} = $value;
-     }
-
-     $request_line = <$fh>;
-  }
-
-  http_request_handler($fh, \%req);
-
-  close $fh;
-}
+ 
+my $pid = MyWebServer->new($TCPPort)->background();
 
 ##############################################################################
 sub OuncesToPounds($) {
@@ -171,48 +166,115 @@ sub OuncesToPounds($) {
 }
 
 ##############################################################################
-sub http_request_handler {
-    my $fh     =   shift;
-    my $req_   =   shift;
-    my %req    =   %$req_;
-    my $ErrorMessage;
+my $ErrorMessage;
+my $BackedUp = 0;
 
-    $req{OBJECT} =~ s/\+/ /g;
-    $req{OBJECT} =~ s/%([0-9A-Fa-f]{2})/chr(hex("0x$1"))/ge;
-    if ($req{OBJECT} =~ /^\/submit\?$PRINTVIEWBUTTONNAME=/) {
+sub BackupAndWriteXMLFile() {
+    # Save the new XML data after making a backup copy of the original file.
+    # Only create the backup file once.
+    if ($BackedUp || rename($XMLFileName, $XMLFileName."~")) {
+        $BackedUp = 1;
+        if (open(OUT, '>', $XMLFileName)) {
+            print OUT XML::Simple::XMLout($XML, keyattr => ['name']);
+            close OUT;
+        } else {
+            $ErrorMessage = "Can't open $XMLFileName for writing.";
+        }
+    } else {
+        $ErrorMessage = "Can't create backup file $XMLFileName", "~.";
+    }
+}
+
+##############################################################################
+sub submit_handler {
+    my $cgi  = shift;   # CGI.pm object
+
+    my $Query = $cgi->query_string();
+
+    $Query =~ s/\+/ /g;
+    $Query =~ s/%([0-9A-Fa-f]{2})/chr(hex("0x$1"))/ge;
+    if ($Query =~ /$PRINTVIEWBUTTONNAME=$PRINTVIEWBUTTONVALUE;{0,1}/) {
         # Print view button pressed.
         $EditView = 0;
-    } elsif ($req{OBJECT} =~ /^\/submit\?$SAVEBUTTONNAME=/) {
+    } elsif ($Query =~ /$SAVEBUTTONNAME=$SAVEBUTTONVALUE;{0,1}/) {
         # Save changes button pressed.
         # Parse the request data and update the $XML data
         # structure based on the contents.
-        $req{OBJECT} =~ s/^\/submit\?[\w\s]+?=.+?&//;
-        foreach my $C ( split('&', $req{OBJECT}) ) {
-            $C =~ /(.+)\\(.+)=([01])/;
-            my $Category = $1;
-            my $Item = $2;
-            my $Value = $3;
-            my $ItemHashRef = \%{$XML->{$CATEGORYTAG}->{$Category}->{$ITEMTAG}};
-            if ($Value eq '0') {
-                ($ItemHashRef->{$Item})->{$CARRYTAG} = $NO;
-            } elsif ($Value eq '1') {
-                ($ItemHashRef->{$Item})->{$CARRYTAG} = $YES;
+        $Query =~ s/$SAVEBUTTONNAME=$SAVEBUTTONVALUE;{0,1}//;
+        foreach my $C ( split(';', $Query) ) {
+            if ($C =~ /(.+)\\(.+)=(.+)/) {
+                my $Category = $1;
+                my $Item = $2;
+                my $Value = $3;
+                my $ItemHashRef = \%{$XML->{$CATEGORYTAG}->{$Category}->{$ITEMTAG}};
+                if ($Value eq '0') {
+                    ($ItemHashRef->{$Item})->{$CARRYTAG} = $NO;
+                } elsif ($Value eq '1') {
+                    ($ItemHashRef->{$Item})->{$CARRYTAG} = $YES;
+                }
             }
         }
-        # Save the new XML data after making a backup copy of the original file.
-        # Only create the backup file once.
-        if ($BackedUp || rename($XMLFileName, $XMLFileName."~")) {
-            $BackedUp = 1;
-            if (open(OUT, '>', $XMLFileName)) {
-                print OUT XMLout($XML, keyattr => ['name']);
-                close OUT;
-            } else {
-                $ErrorMessage = "Can't open $XMLFileName for writing.";
+        BackupAndWriteXMLFile();
+    } elsif ($Query =~ /$ADDBUTTONNAME=$ADDBUTTONVALUE;{0,1}/) {
+        $Query =~ s/$ADDBUTTONNAME=$ADDBUTTONVALUE;{0,1}//;
+        my $Category;
+        my $Item;
+        my $Quantity;
+        my $Ounces;
+        my @Components;
+        my @ComponentWeights;
+        foreach my $C ( split(';', $Query) ) {
+            if ($C =~ /(.+)=(.+)/) {
+                if ($1 eq $ADDCATEGORYNAME) {
+                    $Category = $2;
+                } elsif ($1 eq $ADDITEMNAME) {
+                    $Item = $2;
+                } elsif ($1 eq $ADDWEIGHTNAME) {
+                    $Ounces = $2;
+                } elsif ($1 eq $ADDQUANTITYNAME) {
+                    $Quantity = $2;
+                } elsif ($1 eq $ADDCOMPONENTNAME) {
+                    push @Components, $2;
+                } elsif ($1 eq $ADDCOMPONENTWEIGHTNAME) {
+                    push @ComponentWeights, $2;
+                }
             }
-        } else {
-            $ErrorMessage = "Can't create backup file $XMLFileName", "~.";
         }
+        my $ItemHashRef = \%{$XML->{$CATEGORYTAG}->{$Category}->{$ITEMTAG}};
+        ($ItemHashRef->{$Item})->{$CARRYTAG} = $NO;
+        ($ItemHashRef->{$Item})->{$OUNCESTAG} = $Ounces;
+        ($ItemHashRef->{$Item})->{$QUANTITYTAG} = $Quantity;
+        my @ComponentHash;
+        for (my $i = 0; $i < scalar @Components; $i++) {
+            my %CHash = ( $COMPONENTNAMETAG => $Components[$i], $OUNCESTAG => $ComponentWeights[$i] );
+            push @ComponentHash, \%CHash;
+        }
+        $ItemHashRef->{$Item}->{$COMPONENTSTAG}[0]->{$ITEMTAG} = \@ComponentHash;
+        BackupAndWriteXMLFile();
+    } elsif ($Query =~ /$DELBUTTONNAME=$DELBUTTONVALUE;{0,1}/) {
+        $Query =~ s/$DELBUTTONNAME=$DELBUTTONVALUE;{0,1}//;
+        my $Category;
+        my $Item;
+        foreach my $C ( split(';', $Query) ) {
+            if ($C =~ /(.+)=(.+)/) {
+                if ($1 eq $ADDCATEGORYNAME) {
+                    $Category = $2;
+                } elsif ($1 eq $ADDITEMNAME) {
+                    $Item = $2;
+                }
+            }
+        }
+        my $ItemHashRef = \%{$XML->{$CATEGORYTAG}->{$Category}->{$ITEMTAG}};
+        delete($ItemHashRef->{$Item});
+        BackupAndWriteXMLFile();
     }
+    GeneratePage($cgi);
+}
+
+##############################################################################
+sub GeneratePage() {
+    my $cgi  = shift;   # CGI.pm object
+    return if !ref $cgi;
 
     my $TotalPounds = 0;
     my $InPackPounds = 0;
@@ -220,73 +282,59 @@ sub http_request_handler {
 
     my %CategoryPounds;
 
+    local $\ = "\n";
+
     # make a pass through the XML to compute the total, pack, and base weights
-    foreach my $C (sort keys %{$XML->{$CATEGORYTAG}}) {
-        $CategoryPounds{$C} = 0;
-        my $ItemHashRef = \%{$XML->{$CATEGORYTAG}->{$C}->{$ITEMTAG}};
-        foreach my $I (sort keys %$ItemHashRef) {
-            if (!defined(($ItemHashRef->{$I})->{$QUANTITYTAG})) {
-                ($ItemHashRef->{$I})->{$QUANTITYTAG} = 1;
+    foreach my $CategoryName (sort keys %{$XML->{$CATEGORYTAG}}) {
+        $CategoryPounds{$CategoryName} = 0;
+        my $ItemHashRef = \%{$XML->{$CATEGORYTAG}->{$CategoryName}->{$ITEMTAG}};
+        foreach my $ItemName (sort keys %$ItemHashRef) {
+            if (!defined(($ItemHashRef->{$ItemName})->{$QUANTITYTAG})) {
+                ($ItemHashRef->{$ItemName})->{$QUANTITYTAG} = 1;
             }
-            if (($ItemHashRef->{$I})->{$CARRYTAG} eq $YES) {
-                if (defined(($ItemHashRef->{$I})->{$COMPONENTSTAG})) {
-                    my $ComponentArrayRef = $ItemHashRef->{$I}->{$COMPONENTSTAG}[0]->{$ITEMTAG};
-                    $$ItemHashRef{$I}->{$OUNCESTAG} = 0;
-                    foreach my $C (@$ComponentArrayRef) {
-                        $$ItemHashRef{$I}->{$OUNCESTAG} += $C->{$OUNCESTAG};
-                    }
+            if (defined(($ItemHashRef->{$ItemName})->{$COMPONENTSTAG})) {
+                my $ComponentArrayRef = $ItemHashRef->{$ItemName}->{$COMPONENTSTAG}[0]->{$ITEMTAG};
+                $$ItemHashRef{$ItemName}->{$OUNCESTAG} = 0;
+                foreach my $C (@$ComponentArrayRef) {
+                    $$ItemHashRef{$ItemName}->{$OUNCESTAG} += $C->{$OUNCESTAG};
                 }
-                my $Pounds = OuncesToPounds(($ItemHashRef->{$I})->{$OUNCESTAG} * ($ItemHashRef->{$I})->{$QUANTITYTAG});
-                $CategoryPounds{$C} += $Pounds;
-                if ($C ne $NOTINPACKNAME) {
+            }
+            if (($ItemHashRef->{$ItemName})->{$CARRYTAG} eq $YES) {
+                my $Pounds = OuncesToPounds(($ItemHashRef->{$ItemName})->{$OUNCESTAG} * ($ItemHashRef->{$ItemName})->{$QUANTITYTAG});
+                $CategoryPounds{$CategoryName} += $Pounds;
+                if ($CategoryName ne $NOTINPACKNAME) {
                     $InPackPounds += $Pounds;
                 }
-                if ($C ne $CONSUMABLESNAME && $C ne $NOTINPACKNAME) {
+                if ($CategoryName ne $CONSUMABLESNAME && $CategoryName ne $NOTINPACKNAME) {
                    $BasePounds += $Pounds;
                 }
             }
         }
-        $TotalPounds += $CategoryPounds{$C};
+        $TotalPounds += $CategoryPounds{$CategoryName};
     }
 
     # Generate the web server response...
-    print $fh "HTTP/1.0 200 OK\r\n";
-    print $fh "Server: adp perl webserver\r\n";
-    print $fh "\r\n";
+    print $cgi->header;
+    print $cgi->start_html(($EditView ? "" : "Print ") . "Backpack Inventory");
 
-    $\ = "\n";
-    print $fh '<html>';
-    print $fh '<body>';
-    print $fh '<form action="submit">';
     if ($EditView) {
-        print $fh '<div class="backgroundgradient">';
+        print '<div class="backgroundgradient">';
     }
-
-    #################################################################
-    #Use this code to display the request info from the browser
-    #my %header = %{$req{HEADER}};
-    #print "Method: $req{METHOD}<br>";
-    #print "Object: $req{OBJECT}<br>";
-    #foreach my $r (keys %header) {
-    #  print $r, " = ", $header{$r} , "<br>";
-    #}
-    #################################################################
-
-    # generate the web page...
+    print '<form action="submit">';
 
     if (defined $ErrorMessage) {
-        print $fh '<br><br>';
-        print $fh '<div class="alert">';
-        print $fh     '<span class="closebtn">&times;</span>';
-        print $fh     "<strong>$ErrorMessage</strong>";
-        print $fh '</div>';
+        print '<br><br>';
+        print '<div class="alert">';
+        print     "<span class=\"$CLOSEBTN\">&times;</span>";
+        print     "<strong>$ErrorMessage</strong>";
+        print '</div>';
     }
 
     #################################################################
     # Create a table to display total, in pack, and base weights
-    print $fh '<br><br>';
-    print $fh '<table class="center_table" style="width:80%" border="1">';
-    print $fh '<tr>';
+    print '<br><br>';
+    print '<table class="center_table" style="width:80%" border="1">';
+    print '<tr>';
 
     foreach my $A (
                    ( [ $TOTALNAME , $TotalPounds  ], 
@@ -295,91 +343,164 @@ sub http_request_handler {
                    )
                   )
     {
-        print $fh     '<th>';
-        print $fh         '<p style="font-size: x-large">';
-        print $fh             sprintf('%s <span id="%s">%s</span>', $A->[0], $A->[0], $A->[1]);
-        print $fh         '</p>';
-        print $fh     '</th>';
+        print     '<th>';
+        print         '<p style="font-size: x-large">';
+        print             sprintf('%s <span id="%s">%s</span>', $A->[0], $A->[0], $A->[1]);
+        print         '</p>';
+        print     '</th>';
     }
-    print $fh '</tr>';
-    print $fh '</table>';
-    print $fh '<br>';
+    print '</tr>';
+    print '</table>';
+    print '<br>';
 
     #################################################################
     # Define the submit buttons
     if ($EditView) {
-        print $fh '<div class="center_buttons">';
-        print $fh '<input type="submit" class="push_button blue" formtarget="_blank" name="', $PRINTVIEWBUTTONNAME, '" value="Print View" >';
-        print $fh '<input type="submit" class="push_button red"  name="', $SAVEBUTTONNAME     , '" value="Save"       style="visibility:hidden">';
-        print $fh '</div>';
-        print $fh '<br>';
+        print '<div class="center_buttons">';
+        print "<input type=\"submit\" class=\"push_button blue\" formtarget=\"_blank\" name=\"$PRINTVIEWBUTTONNAME\" value=\"$PRINTVIEWBUTTONVALUE\" >";
+        print "<input type=\"submit\" class=\"push_button red\"  name=\"$SAVEBUTTONNAME\" value=\"$SAVEBUTTONVALUE\" style=\"visibility:hidden\">";
+        print '</div>';
+        print '<br>';
     }
 
     #################################################################
     # create a table containing the inventory data
-    print $fh '<table class="center_table" style="width:80%"border="1">';
-    print $fh '<tr>';
+    print '<table class="center_table" style="width:80%"border="1">';
+    print '<tr>';
     my $CCount = 0;
 
     my $NumberOfColumns = 4;
 
-    foreach my $C (sort keys %{$XML->{$CATEGORYTAG}}) {
-        if ($CCount++ % $NumberOfColumns == 0) {
-            print $fh '</tr><tr>';
+    foreach my $CategoryName (sort keys %{$XML->{$CATEGORYTAG}}) {
+        if ($CCount != 0 && $CCount % $NumberOfColumns == 0) {
+            print '</tr><tr>';
         }
+        $CCount++;
 
-        print $fh '<td valign="top">';
+        print '<td valign="top">';
 
         # display the category
-        print $fh '<p style="font-size: x-large">';
-        print $fh sprintf('%s <span id="%s">%s</span> lbs', $C, $C, $CategoryPounds{$C} );
-        print $fh '</p>';
+        print '<p style="font-size: x-large">';
+        print sprintf('%s <span id="%s">%s</span> lbs', $CategoryName, $CategoryName, $CategoryPounds{$CategoryName} );
+        print '</p>';
+
+        sub ItemLabel($$) {
+            my $ItemName =  shift;
+            my $Quantity =  shift;
+            return (($Quantity != 1) ? $Quantity.'-' : '') . $ItemName;
+        }
 
         # display the items in the category
-        my $ItemHashRef = \%{$XML->{$CATEGORYTAG}->{$C}->{$ITEMTAG}};
-        foreach my $I (sort keys %$ItemHashRef) {
-            if ($EditView || ($ItemHashRef->{$I})->{$CARRYTAG} eq $YES) {
-                print $fh '<div class="parent-check">';
-                print $fh     '<input type="hidden" value=0 name="', "$C\\$I", '">';
-                print $fh     '<input id="', $C, '" value=1 name="', "$C\\$I", '"';
-                if (!$EditView) {
-                    print $fh          ' style="visibility:hidden" ';
-                }
-                print $fh         'type="checkbox"', (($ItemHashRef->{$I})->{$CARRYTAG} eq $YES) ? 'checked' : '', '>';
-                print $fh     '<label id="', sprintf(" %.2f", ($ItemHashRef->{$I})->{$OUNCESTAG} * ($ItemHashRef->{$I})->{$QUANTITYTAG}), '" style="color:$UNCHANGEDCOLOR;font-size: large">';
+        my $ItemHashRef = \%{$XML->{$CATEGORYTAG}->{$CategoryName}->{$ITEMTAG}};
+        foreach my $ItemName (sort keys %$ItemHashRef) {
+            my $Carry = ($ItemHashRef->{$ItemName})->{$CARRYTAG} eq $YES;
+            if ($EditView || $Carry) {
+                my $Quantity = $ItemHashRef->{$ItemName}->{$QUANTITYTAG};
+                my $InputName = "$CategoryName\\$ItemName";
 
-                if (($ItemHashRef->{$I})->{$QUANTITYTAG} != 1) {
-                    print $fh ($ItemHashRef->{$I})->{$QUANTITYTAG}, '-';
+                sub StyleVisibility($) {
+                    my $IsVisible = shift;
+                    return ' style="visibility:', $IsVisible ? 'visible' : 'hidden', '"';
                 }
-                print $fh     $I;
-                print $fh     '</label>';
-                if (defined(($ItemHashRef->{$I})->{$COMPONENTSTAG})) {
+
+                print '<div>';
+                print     "<input type=\"hidden\" value=0 name=\"$InputName\">";
+                print     "<input value=1 name=\"$InputName\"";
+                print         StyleVisibility($EditView);
+                print         ' type="checkbox"', $Carry ? ' checked' : '';
+                print         " data-$CATEGORYTAG=\"$CategoryName\"";
+                print     '>';
+                print     "<label", StyleVisibility($Quantity != 1), ">$ItemHashRef->{$ItemName}->{$QUANTITYTAG}</label>";
+                print     "<label class=\"$ITEMLABEL\"";
+                print         " data-$OUNCESTAG=\"$ItemHashRef->{$ItemName}->{$OUNCESTAG}\"";
+                print         " data-$QUANTITYTAG=\"$ItemHashRef->{$ItemName}->{$QUANTITYTAG}\"";
+                print     ">$ItemName</label>";
+                if (defined(($ItemHashRef->{$ItemName})->{$COMPONENTSTAG})) {
                     # display the sub-components of the item
-                    my $ComponentArrayRef = $ItemHashRef->{$I}->{$COMPONENTSTAG}[0]->{$ITEMTAG};
+                    my $ComponentArrayRef = ($ItemHashRef->{$ItemName})->{$COMPONENTSTAG}[0]->{$ITEMTAG};
                     foreach my $P (@$ComponentArrayRef) {
-                        print $fh '<div class="components">';
-                        print $fh     '<label>', $P->{$COMPONENTNAMETAG}, '</label>';
-                        print $fh '</div>';
+                        print     "<label class=\"$COMPONENTSTAG\" data-$OUNCESTAG=\"$P->{$OUNCESTAG}\">$P->{$COMPONENTNAMETAG}</label>";
                     }
                 }
-                print $fh '</div>';
+                print '</div>';
             }
         }
     }
-    print $fh '</tr>';
-    print $fh '</table>';
-    print $fh '<br><br>';
+    print '</tr>';
+    print '</table>';
+    print '<br><br>';
+    print '</form> ';
+
     if ($EditView) {
-        print $fh '</div>';
+        # create a form to allow adding, updating and deleting items
+        my $OuncesInputAttributes = "type=\"number\" min=\"0.01\" step=\"0.01\"";
+        print '<form action="submit" onkeydown="return event.key != \'Enter\';">';
+        print '<table class="center_table" style="width:50%" border="1">';
+        print '<tr>';
+        print     '<td>';
+        print     "<label for=\"$ADDCATEGORYNAME\">Category</label>";
+        print     '</td>';
+        print     '<td>';
+        print     "<select id=\"$ADDCATEGORYNAME\" name=\"$ADDCATEGORYNAME\" style=\"width:95%\">";
+        foreach my $CategoryName (sort keys %{$XML->{$CATEGORYTAG}}) {
+            print "<option value=\"$CategoryName\">$CategoryName</option>";
+        }
+        print     '</select>';
+        print     '</td>';
+        print '</tr>';
+        print '<tr>';
+        print     '<td>';
+        print         "<label for=\"$ADDITEMNAME\">Item</label>";
+        print     '</td>';
+        print     '<td>';
+        print         "<label>Name</label>";
+        print         "<input type=\"text\" id=\"$ADDITEMNAME\" name=\"$ADDITEMNAME\">";
+        print         "<label>Ounces</label>";
+        print         "<input $OuncesInputAttributes id=\"$ADDWEIGHTNAME\" name=\"$ADDWEIGHTNAME\">";
+        print     '</td>';
+        print '</tr>';
+        print '<tr>';
+        print     '<td>';
+        print         "<label for=\"$ADDCOMPONENTNAME\">Components</label>";
+        print     '</td>';
+        print     '<td>';
+        for (my $i = 0; $i < $MAXCOMPONENTS; $i++) {
+            print         "<label>Name</label>";
+            print         "<input type=\"text\" id=\"$ADDCOMPONENTNAME\" name=\"$ADDCOMPONENTNAME\" >";
+            print         "<label>Ounces</label>";
+            print         "<input $OuncesInputAttributes id=\"$ADDCOMPONENTWEIGHTNAME\" name=\"$ADDCOMPONENTWEIGHTNAME\">";
+            print         "<br>"
+        }
+        print     '</td>';
+        print '</tr>';
+        print '<tr>';
+        print     '<td>';
+        print         "<label for=\"$ADDQUANTITYNAME\">Quantity</label>";
+        print     '</td>';
+        print     '<td>';
+        print         "<input type=\"number\" min=\"1\" id=\"$ADDQUANTITYNAME\" name=\"$ADDQUANTITYNAME\" value=\"1\" style=\"width:95%\">";
+        print     '</td>';
+        print '</tr>';
+        print '</table>';
+
+        print '<br>';
+        print '<div class="center_buttons">';
+        print         "<input type=\"submit\" class=\"push_button blue\" name=\"$ADDBUTTONNAME\" value=\"$ADDBUTTONVALUE\">";
+        print         "<input type=\"submit\" class=\"push_button blue\" name=\"$DELBUTTONNAME\" value=\"$DELBUTTONVALUE\">";
+        print '</div>';
+        print '</form> ';
+        print '<br><br>';
     }
-    print $fh '</form> ';
-    print $fh '</body>';
-    print $fh '</html>';
+
+    if ($EditView) {
+        print '</div>';
+    }
 
     # copy the __DATA__ section to the output
     foreach my $Line (@PageData) {
-        print $fh $Line;
+        print $Line;
     }
+    print $cgi->end_html;
 }
 
 ##############################################################################
@@ -412,12 +533,12 @@ __DATA__
 /*   ------------------------------------------------------------- */
 /*   CSS code for checkboxes with collapsible component lists      */
 
-.components{
+.!!COMPONENTSTAG!!{
   margin-left: 50px;
   display: none;
 }
 
-.components.active{
+.!!COMPONENTSTAG!!.active{
   display: block;
 }
 
@@ -433,7 +554,7 @@ __DATA__
   margin-bottom: 15px;
 }
 
-.closebtn {
+.!!CLOSEBTN!! {
   margin-left: 15px;
   color: white;
   font-weight: bold;
@@ -444,8 +565,14 @@ __DATA__
   transition: 0.3s;
 }
 
-.closebtn:hover {
+.!!CLOSEBTN!!:hover {
   color: black;
+}
+
+/*   ------------------------------------------------------------- */
+.!!ITEMLABEL!! {
+    color: !!UNCHANGEDCOLOR!!;
+    font-size: large;
 }
 
 /*   ------------------------------------------------------------- */
@@ -527,28 +654,39 @@ __DATA__
 <script type="text/javascript">//<![CDATA[
 
 /*##########################################################################*/
-function getStorageName(E) {
-    return E.id.concat('_'.concat(E.nextElementSibling.innerHTML));
-}
-
 function updatePounds(element, Pounds) {
     element.innerHTML = (parseFloat(element.innerHTML) + Pounds).toFixed(2);
+}
+
+function displaySaveButtonMaybe() {
+    /* un-hide the "SAVE" button if changes were made */
+    var SaveButton = document.getElementsByName('!!SAVEBUTTON!!');
+    SaveButton[0].style.visibility = 'hidden';
+    var checks = document.querySelectorAll("input[type=checkbox]");
+    for (var i = 0; i < checks.length; i++){
+        var ChkLabel = checks[i].parentNode.getElementsByClassName("!!ITEMLABEL!!")[0];
+        if (ChkLabel.style.color == "!!CHANGEDCOLOR!!") {
+            SaveButton[0].style.visibility = 'visible';
+            break;
+        }
+    }
 }
 
 var checks = document.querySelectorAll("input[type=checkbox]");
 for(var i = 0; i < checks.length; i++){
     /* add an event listener for all checkboxes */
     checks[i].addEventListener( 'change', function() {
-        var CheckPounds = Math.round((parseFloat(this.nextElementSibling.id) / 16) * 100) / 100;
+        var ChkLabel = this.parentNode.getElementsByClassName("!!ITEMLABEL!!")[0];
+        var CheckPounds = Math.round((parseFloat(ChkLabel.dataset.!!OUNCESTAG!!) * parseInt(ChkLabel.dataset.!!QUANTITYTAG!!) / 16) * 100) / 100;
 
-        var OriginalCheckState = sessionStorage.getItem(getStorageName(this));
+        var OriginalCheckState = sessionStorage.getItem(this.name);
         if (( this.checked && OriginalCheckState == 0) ||
             (!this.checked && OriginalCheckState == 1)
            )
         {
-            this.nextElementSibling.style.color = "!!CHANGEDCOLOR!!";
+            ChkLabel.style.color = "!!CHANGEDCOLOR!!";
         } else {
-            this.nextElementSibling.style.color = "!!UNCHANGEDCOLOR!!";
+            ChkLabel.style.color = "!!UNCHANGEDCOLOR!!";
         }
   
         if(this.checked) {
@@ -564,72 +702,130 @@ for(var i = 0; i < checks.length; i++){
              hideComponents(this)
         }
 
-        updatePounds(document.getElementById(this.id), CheckPounds);
+        /* update the category total */
+        var Category = this.dataset.!!CATEGORYTAG!!;
+        updatePounds(document.getElementById(Category), CheckPounds);
+
+        /* update the total, inpack, and base weights */
         updatePounds(document.getElementById('!!TOTAL!!'), CheckPounds);
-        if (this.id != "!!NOTINPACK!!") {
+        if (Category != "!!NOTINPACK!!") {
             updatePounds(document.getElementById('!!INPACK!!'), CheckPounds);
-            if (this.id != "!!CONSUMABLES!!") {
+            if (Category != "!!CONSUMABLES!!") {
                 updatePounds(document.getElementById('!!BASE!!'), CheckPounds);
             }
         }
   
-        /* un-hide the "SAVE" button if changes were made */
-        var SaveButton = document.getElementsByName('!!SAVEBUTTON!!');
-        SaveButton[0].style.visibility = 'hidden';
-        var checks = document.querySelectorAll("input[type=checkbox]");
-        for (var i = 0; i < checks.length; i++){
-            if (checks[i].nextElementSibling.style.color == "!!CHANGEDCOLOR!!") {
-                SaveButton[0].style.visibility = 'visible';
-                break;
-            }
-        }
+        displaySaveButtonMaybe();
     });
     /* show or hide the children of a checkbox (components)
      * and save the initial value of the checkboxes
      */
     if (checks[i].checked) {
-        sessionStorage.setItem(getStorageName(checks[i]), 1);
+        sessionStorage.setItem(checks[i].name, 1);
         showComponents(checks[i]);
     } else {
-        sessionStorage.setItem(getStorageName(checks[i]), 0);
+        sessionStorage.setItem(checks[i].name, 0);
         hideComponents(checks[i]);
     }
 }
 
 /*##########################################################################*/
+function UpdateAddWeights() {
+    var components = document.getElementsByName("!!ADDCOMPONENTNAME!!");
+    var componentweights = document.getElementsByName("!!ADDCOMPONENTWEIGHTNAME!!");
+    var addweight = document.getElementById("!!ADDWEIGHTNAME!!");
+    var totalweight = 0;
+
+    addweight.disabled = false;
+    for(var i = 0; i < components.length; i++){
+        if (components[i].value !== "") {
+            addweight.disabled = true;
+            componentweights[i].disabled = false;
+            if (componentweights[i].value != "") {
+                totalweight += parseFloat(componentweights[i].value);
+            }
+        } else {
+            componentweights[i].value = "";
+            componentweights[i].disabled = true;
+        }
+    }
+    if (addweight.disabled) {
+        addweight.value = totalweight.toFixed(2);
+    }
+}
+
+/*##########################################################################*/
+var addcomponents = document.getElementsByName("!!ADDCOMPONENTNAME!!");
+for(var i = 0; i < addcomponents.length; i++){
+    addcomponents[i].addEventListener('change', UpdateAddWeights);
+}
+
+/*##########################################################################*/
+var addounces = document.getElementsByName("!!ADDCOMPONENTWEIGHTNAME!!");
+for(var i = 0; i < addounces.length; i++){
+    addounces[i].addEventListener('change', function() {
+        var addweight = 0;
+        var ComponentWeights = document.getElementsByName("!!ADDCOMPONENTWEIGHTNAME!!");
+        for(var j = 0; j < ComponentWeights.length; j++){
+            if (ComponentWeights[j].value === "") break;
+            addweight += parseFloat(ComponentWeights[j].value);
+        }
+        document.getElementById("!!ADDWEIGHTNAME!!").value = addweight.toFixed(2);
+    });
+}
+
+/*##########################################################################*/
+var labels = document.getElementsByClassName("!!ITEMLABEL!!");
+for(var i = 0; i < labels.length; i++){
+    labels[i].addEventListener( 'dblclick', function() {
+        var Label = this;
+        var ChkBox = Label.parentNode.getElementsByTagName("input")[1];
+        var components = Label.parentNode.getElementsByClassName("!!COMPONENTSTAG!!")
+        document.getElementById("!!ADDCATEGORYNAME!!").value = ChkBox.dataset.!!CATEGORYTAG!!;
+        document.getElementById("!!ADDITEMNAME!!").value = this.innerHTML;
+        document.getElementById("!!ADDWEIGHTNAME!!").value = this.dataset.!!OUNCESTAG!!;
+        document.getElementById("!!ADDQUANTITYNAME!!").value = this.dataset.!!QUANTITYTAG!!;
+        var ComponentNames   = document.getElementsByName("!!ADDCOMPONENTNAME!!");
+        var ComponentWeights = document.getElementsByName("!!ADDCOMPONENTWEIGHTNAME!!");
+        var j;
+        var k = 0;
+        for(j = 0; j < components.length; j++){
+            ComponentNames[k].value = components[j].innerHTML;
+            ComponentWeights[k].value = components[j].dataset.!!OUNCESTAG!!;
+            k++;
+        }
+        while (k < !!MAXCOMPONENTS!!) {
+            ComponentNames[k].value = "";
+            ComponentWeights[k].value = "";
+            k++;
+        }
+        UpdateAddWeights();
+    });
+}
+
+/*##########################################################################*/
 /* un-hide the components of the checkbox that changed */
-function showComponents(elm) {
-   var pN = elm.parentNode;
-   var components = pN.children;
+function showComponents(ChkBox) {
+    var components = ChkBox.parentNode.getElementsByClassName("!!COMPONENTSTAG!!");
    
-  for(var i = 0; i < components.length; i++){
-      if(hasClass(components[i], 'components')){
-	      components[i].classList.add("active");      
-      }
-  }
+    for(var i = 0; i < components.length; i++){
+      components[i].classList.add("active");      
+    }
 }
 
 /*##########################################################################*/
 /* hide the components of the checkbox that changed */
-function hideComponents(elm) {
-   var pN = elm.parentNode;
-   var components = pN.children;
+function hideComponents(ChkBox) {
+    var components = ChkBox.parentNode.getElementsByClassName("!!COMPONENTSTAG!!");
    
-  for(var i = 0; i < components.length; i++){
-      if(hasClass(components[i], 'components')){
-	      components[i].classList.remove("active");      
-      }
-  }
-}
-
-/*##########################################################################*/
-function hasClass(elem, className) {
-    return new RegExp(' ' + className + ' ').test(' ' + elem.className + ' ');
+    for(var i = 0; i < components.length; i++){
+      components[i].classList.remove("active");      
+    }
 }
 
 /*##########################################################################*/
 
-var close = document.getElementsByClassName("closebtn");
+var close = document.getElementsByClassName("!!CLOSEBTN!!");
 var i;
 
 for (i = 0; i < close.length; i++) {
@@ -641,6 +837,5 @@ for (i = 0; i < close.length; i++) {
 }
 
 /*##########################################################################*/
-
 //]]></script>
 
