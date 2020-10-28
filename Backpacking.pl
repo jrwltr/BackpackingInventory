@@ -64,7 +64,7 @@ my $ADDQUANTITYNAME             = 'itemquantity';
 my $ADDCOMPONENTNAME            = 'itemcomponent[]';
 my $ADDCOMPONENTWEIGHTNAME      = 'itemcomponentweight[]';
 my $ADDBUTTONNAME               = 'AddItem';
-my $ADDBUTTONVALUE              = 'Add/Update Item';
+my $ADDBUTTONVALUE              = 'Add or Update Item';
 
 my $DELITEMNAME                 = 'itemname';
 my $DELBUTTONNAME               = 'DeleteItem';
@@ -244,12 +244,16 @@ sub submit_handler {
         ($ItemHashRef->{$Item})->{$CARRYTAG} = $NO;
         ($ItemHashRef->{$Item})->{$OUNCESTAG} = $Ounces;
         ($ItemHashRef->{$Item})->{$QUANTITYTAG} = $Quantity;
-        my @ComponentHash;
+        my @ComponentArray;
         for (my $i = 0; $i < scalar @Components; $i++) {
             my %CHash = ( $COMPONENTNAMETAG => $Components[$i], $OUNCESTAG => $ComponentWeights[$i] );
-            push @ComponentHash, \%CHash;
+            push @ComponentArray, \%CHash;
         }
-        $ItemHashRef->{$Item}->{$COMPONENTSTAG}[0]->{$ITEMTAG} = \@ComponentHash;
+        if (scalar @ComponentArray) {
+            $ItemHashRef->{$Item}->{$COMPONENTSTAG}[0]->{$ITEMTAG} = \@ComponentArray;
+        } else {
+            delete($ItemHashRef->{$Item}->{$COMPONENTSTAG}[0]);
+        }
         BackupAndWriteXMLFile();
     } elsif ($Query =~ /$DELBUTTONNAME=$DELBUTTONVALUE;{0,1}/) {
         $Query =~ s/$DELBUTTONNAME=$DELBUTTONVALUE;{0,1}//;
@@ -292,7 +296,7 @@ sub GeneratePage() {
             if (!defined(($ItemHashRef->{$ItemName})->{$QUANTITYTAG})) {
                 ($ItemHashRef->{$ItemName})->{$QUANTITYTAG} = 1;
             }
-            if (defined(($ItemHashRef->{$ItemName})->{$COMPONENTSTAG})) {
+            if (defined(($ItemHashRef->{$ItemName})->{$COMPONENTSTAG}[0]->{$ITEMTAG})) {
                 my $ComponentArrayRef = $ItemHashRef->{$ItemName}->{$COMPONENTSTAG}[0]->{$ITEMTAG};
                 $$ItemHashRef{$ItemName}->{$OUNCESTAG} = 0;
                 foreach my $C (@$ComponentArrayRef) {
@@ -302,15 +306,15 @@ sub GeneratePage() {
             if (($ItemHashRef->{$ItemName})->{$CARRYTAG} eq $YES) {
                 my $Pounds = OuncesToPounds(($ItemHashRef->{$ItemName})->{$OUNCESTAG} * ($ItemHashRef->{$ItemName})->{$QUANTITYTAG});
                 $CategoryPounds{$CategoryName} += $Pounds;
-                if ($CategoryName ne $NOTINPACKNAME) {
-                    $InPackPounds += $Pounds;
-                }
-                if ($CategoryName ne $CONSUMABLESNAME && $CategoryName ne $NOTINPACKNAME) {
-                   $BasePounds += $Pounds;
-                }
             }
         }
         $TotalPounds += $CategoryPounds{$CategoryName};
+        if ($CategoryName ne $NOTINPACKNAME) {
+            $InPackPounds += $CategoryPounds{$CategoryName};
+        }
+        if ($CategoryName ne $CONSUMABLESNAME && $CategoryName ne $NOTINPACKNAME) {
+           $BasePounds += $CategoryPounds{$CategoryName};
+        }
     }
 
     # Generate the web server response...
@@ -415,7 +419,7 @@ sub GeneratePage() {
                 print         " data-$OUNCESTAG=\"$ItemHashRef->{$ItemName}->{$OUNCESTAG}\"";
                 print         " data-$QUANTITYTAG=\"$ItemHashRef->{$ItemName}->{$QUANTITYTAG}\"";
                 print     ">$ItemName</label>";
-                if (defined(($ItemHashRef->{$ItemName})->{$COMPONENTSTAG})) {
+                if (defined(($ItemHashRef->{$ItemName})->{$COMPONENTSTAG}[0]->{$ITEMTAG})) {
                     # display the sub-components of the item
                     my $ComponentArrayRef = ($ItemHashRef->{$ItemName})->{$COMPONENTSTAG}[0]->{$ITEMTAG};
                     foreach my $P (@$ComponentArrayRef) {
