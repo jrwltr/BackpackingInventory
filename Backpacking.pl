@@ -1,7 +1,3 @@
-#???pretty-fy add/delete table
-#???add help screen?
-#???handle ounces -- don't store ounces if components are present?
-#                    etc...
 use strict;
 use File::Basename;
 use XML::Simple qw(:strict);
@@ -437,7 +433,6 @@ sub GeneratePage() {
 
     if ($EditView) {
         # create a form to allow adding, updating and deleting items
-        my $OuncesInputAttributes = "type=\"number\" min=\"0.01\" step=\"0.01\"";
         print '<form action="submit" onkeydown="return event.key != \'Enter\';">';
         print '<table class="center_table" style="width:50%" border="1">';
         print '<tr>';
@@ -457,10 +452,21 @@ sub GeneratePage() {
         print         "<label for=\"$ADDITEMNAME\">Item</label>";
         print     '</td>';
         print     '<td>';
-        print         "<label>Name</label>";
-        print         "<input type=\"text\" id=\"$ADDITEMNAME\" name=\"$ADDITEMNAME\">";
-        print         "<label>Ounces</label>";
-        print         "<input $OuncesInputAttributes id=\"$ADDWEIGHTNAME\" name=\"$ADDWEIGHTNAME\">";
+
+        sub NameOuncesInputFields($$) {
+            my $NameName = shift;
+            my $WeightName = shift;
+            print "<label>&nbsp;Name&nbsp;</label>";
+            print "<input type=\"text\" id=\"$NameName\" name=\"$NameName\" size=\"50\">";
+            print '<label>&nbsp;Ounces&nbsp;</label>';
+            print '<input';
+            print     ' type="number" min="0.01" step="0.01"';
+            print     " id=\"$WeightName\" name=\"$WeightName\" style=\"width:60px\"";
+            print '>';
+
+        }
+
+        NameOuncesInputFields($ADDITEMNAME, $ADDWEIGHTNAME);
         print     '</td>';
         print '</tr>';
         print '<tr>';
@@ -469,10 +475,7 @@ sub GeneratePage() {
         print     '</td>';
         print     '<td>';
         for (my $i = 0; $i < $MAXCOMPONENTS; $i++) {
-            print         "<label>Name</label>";
-            print         "<input type=\"text\" id=\"$ADDCOMPONENTNAME\" name=\"$ADDCOMPONENTNAME\" >";
-            print         "<label>Ounces</label>";
-            print         "<input $OuncesInputAttributes id=\"$ADDCOMPONENTWEIGHTNAME\" name=\"$ADDCOMPONENTWEIGHTNAME\">";
+            NameOuncesInputFields($ADDCOMPONENTNAME, $ADDCOMPONENTWEIGHTNAME);
             print         "<br>"
         }
         print     '</td>';
